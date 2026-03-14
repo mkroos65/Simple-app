@@ -18,9 +18,13 @@ public static class Config
     /// <summary>Full WebSocket server URI used by Fleck.</summary>
     public static string WebSocketUri => $"ws://{WebSocketHost}:{WebSocketPort}";
 
+    /// <summary>REST API server port.</summary>
+    public const int ApiPort = 5555;
+
     /// <summary>
-    /// Interval in milliseconds between SimConnect data requests.
-    /// 100 ms = 10 updates per second.
+    /// Base polling interval in milliseconds.
+    /// 100 ms = 10 Hz for aircraft data.
+    /// Autopilot and traffic use multiples of this interval.
     /// </summary>
     public const int TelemetryIntervalMs = 100;
 

@@ -120,15 +120,10 @@ namespace Microsoft.FlightSimulator.SimConnect
     }
 
     // -------------------------------------------------------------------------
-    // Delegate for SignalProc
+    // Delegates
     // -------------------------------------------------------------------------
 
     public delegate void SignalProcDelegate();
-
-    // -------------------------------------------------------------------------
-    // Receive-event delegates
-    // -------------------------------------------------------------------------
-
     public delegate void RecvOpenEventHandler(SimConnect sender, SIMCONNECT_RECV_OPEN data);
     public delegate void RecvQuitEventHandler(SimConnect sender, SIMCONNECT_RECV_QUIT data);
     public delegate void RecvExceptionEventHandler(SimConnect sender, SIMCONNECT_RECV_EXCEPTION data);

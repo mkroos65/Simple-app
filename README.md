@@ -1,15 +1,21 @@
 # MSFS Companion Bridge
 
-A lightweight Windows desktop companion application that bridges **Microsoft Flight Simulator** telemetry to a **WebSocket server**, enabling any web application to consume live aircraft data in real time.
+A professional Windows desktop companion application that bridges **Microsoft Flight Simulator** telemetry to **WebSocket** and **REST API** servers, enabling any web application to consume live aircraft, autopilot, and traffic data in real time.
 
 ## Architecture
 
 ```
-┌──────────────┐  SimConnect   ┌─────────────────────┐  WebSocket   ┌──────────────┐
-│  MS Flight   │──────────────▶│  MSFS Companion     │─────────────▶│  Web App /   │
-│  Simulator   │               │  Bridge             │   (JSON)     │  React Client│
-└──────────────┘               └─────────────────────┘              └──────────────┘
+┌──────────────┐  SimConnect   ┌─────────────────────┐  WebSocket    ┌──────────────┐
+│  MS Flight   │──────────────▶│  MSFS Companion     │──────────────▶│  Web App /   │
+│  Simulator   │               │  Bridge v2.0        │   (JSON)      │  React Client│
+└──────────────┘               │                     │               └──────────────┘
+                               │  SimConnectService  │  REST API     ┌──────────────┐
+                               │  TelemetryEngine    │──────────────▶│  HTTP Client │
+                               │  WebSocketServer    │               └──────────────┘
+                               │  ApiServer          │
+                               └─────────────────────┘
                                 ws://localhost:8765
+                                http://localhost:5555
 ```
 
 ## Requirements
@@ -51,10 +57,11 @@ You should see:
 
 ```
 =========================================
-       MSFS Companion Bridge v1.0
+       MSFS Companion Bridge v2.0
 =========================================
 
 [12:00:00] WebSocket server running on port 8765
+[12:00:00] REST API server running on port 5555
 [12:00:00] Connecting to SimConnect...
 [12:00:01] Connected to MSFS
 ```
@@ -75,39 +82,150 @@ The output executable will be in `bin/Release/net8.0/win-x64/publish/`.
 ws://localhost:8765
 ```
 
-### JSON Payload
+All WebSocket messages use **event-based messaging** with a `type` field, a `data` payload, and a `timestamp`.
 
-Each message is a JSON object with the following fields:
+### Message Types
+
+#### `aircraft:update` (10 Hz)
+
+```json
+{
+  "type": "aircraft:update",
+  "data": {
+    "lat": 45.5017,
+    "lon": -73.5673,
+    "altitude": 3500.0,
+    "heading": 180.0,
+    "pitch": 2.1,
+    "bank": -1.2,
+    "groundSpeed": 120.0,
+    "verticalSpeed": 500.0
+  },
+  "timestamp": 1710000000
+}
+```
 
 | Field | Type | Unit | Description |
 |---|---|---|---|
 | `lat` | `number` | degrees | Plane latitude |
 | `lon` | `number` | degrees | Plane longitude |
-| `alt` | `number` | feet | Plane altitude |
+| `altitude` | `number` | feet | Plane altitude |
 | `heading` | `number` | degrees | True heading |
 | `pitch` | `number` | degrees | Pitch angle |
 | `bank` | `number` | degrees | Bank angle |
-| `speed` | `number` | knots | Indicated airspeed |
-| `vs` | `number` | ft/min | Vertical speed |
-| `timestamp` | `number` | epoch sec | Unix timestamp |
+| `groundSpeed` | `number` | knots | Ground speed |
+| `verticalSpeed` | `number` | ft/min | Vertical speed |
 
-### Example Payload
+#### `autopilot:update` (2 Hz)
 
 ```json
 {
-  "lat": 45.5017,
-  "lon": -73.5673,
-  "alt": 3500.0,
-  "heading": 180.0,
-  "pitch": 2.1,
-  "bank": -1.2,
-  "speed": 120.0,
-  "vs": 500.0,
+  "type": "autopilot:update",
+  "data": {
+    "master": true,
+    "altitudeLock": true,
+    "headingLock": false,
+    "headingLockDir": 270.0,
+    "altitudeLockVar": 35000
+  },
   "timestamp": 1710000000
 }
 ```
 
+| Field | Type | Unit | Description |
+|---|---|---|---|
+| `master` | `boolean` | — | Autopilot master switch |
+| `altitudeLock` | `boolean` | — | Altitude hold active |
+| `headingLock` | `boolean` | — | Heading hold active |
+| `headingLockDir` | `number` | degrees | Selected heading |
+| `altitudeLockVar` | `number` | feet | Selected altitude |
+
+#### `traffic:update` (1 Hz)
+
+```json
+{
+  "type": "traffic:update",
+  "data": [
+    {
+      "callsign": "UAL123",
+      "lat": 45.51,
+      "lon": -73.55,
+      "altitude": 36000,
+      "heading": 90.0,
+      "speed": 450.0
+    }
+  ],
+  "timestamp": 1710000000
+}
+```
+
+| Field | Type | Unit | Description |
+|---|---|---|---|
+| `callsign` | `string` | — | Aircraft title / callsign |
+| `lat` | `number` | degrees | Latitude |
+| `lon` | `number` | degrees | Longitude |
+| `altitude` | `number` | feet | Altitude |
+| `heading` | `number` | degrees | True heading |
+| `speed` | `number` | knots | Ground speed |
+
+## REST API
+
+### Base URL
+
+```
+http://localhost:5555
+```
+
+All endpoints return the same structured JSON format used by WebSocket messages. CORS is enabled for browser-based clients.
+
+### Endpoints
+
+#### `GET /api/aircraft`
+
+Returns the latest aircraft state.
+
+```bash
+curl http://localhost:5555/api/aircraft
+```
+
+```json
+{
+  "type": "aircraft:update",
+  "data": {
+    "lat": 45.5017,
+    "lon": -73.5673,
+    "altitude": 3500.0,
+    "heading": 180.0,
+    "pitch": 2.1,
+    "bank": -1.2,
+    "groundSpeed": 120.0,
+    "verticalSpeed": 500.0
+  },
+  "timestamp": 1710000000
+}
+```
+
+#### `GET /api/autopilot`
+
+Returns the latest autopilot state.
+
+```bash
+curl http://localhost:5555/api/autopilot
+```
+
+#### `GET /api/traffic`
+
+Returns a list of nearby AI / multiplayer aircraft.
+
+```bash
+curl http://localhost:5555/api/traffic
+```
+
+> **Note:** If no data is available yet (e.g. MSFS not connected), aircraft and autopilot endpoints return HTTP 503 with `{"error": "No ... data available"}`.
+
 ## Example JavaScript Client
+
+### WebSocket (streaming)
 
 ```javascript
 const ws = new WebSocket("ws://localhost:8765");
@@ -117,19 +235,41 @@ ws.onopen = () => {
 };
 
 ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log(`Position: ${data.lat}, ${data.lon}`);
-  console.log(`Altitude: ${data.alt} ft | Speed: ${data.speed} kts`);
-  console.log(`Heading: ${data.heading}° | VS: ${data.vs} fpm`);
+  const msg = JSON.parse(event.data);
+
+  switch (msg.type) {
+    case "aircraft:update":
+      console.log(`Position: ${msg.data.lat}, ${msg.data.lon}`);
+      console.log(`Altitude: ${msg.data.altitude} ft | Speed: ${msg.data.groundSpeed} kts`);
+      break;
+
+    case "autopilot:update":
+      console.log(`AP Master: ${msg.data.master} | Alt Lock: ${msg.data.altitudeLock}`);
+      break;
+
+    case "traffic:update":
+      console.log(`Nearby aircraft: ${msg.data.length}`);
+      msg.data.forEach(t => console.log(`  ${t.callsign} at ${t.altitude} ft`));
+      break;
+  }
 };
 
 ws.onclose = () => {
   console.log("Disconnected from MSFS Companion Bridge");
 };
+```
 
-ws.onerror = (error) => {
-  console.error("WebSocket error:", error);
-};
+### REST API (polling)
+
+```javascript
+async function getAircraftState() {
+  const res = await fetch("http://localhost:5555/api/aircraft");
+  const msg = await res.json();
+  console.log(msg.data);
+}
+
+// Poll every second
+setInterval(getAircraftState, 1000);
 ```
 
 A ready-to-use HTML test page is provided in [`example-client.html`](example-client.html).
@@ -138,40 +278,43 @@ A ready-to-use HTML test page is provided in [`example-client.html`](example-cli
 
 ```
 MSFS-Companion-Bridge/
-├── Program.cs              # Application entry point
-├── SimConnectManager.cs    # SimConnect lifecycle & telemetry polling
-├── TelemetryData.cs        # Data model (struct + JSON DTO)
-├── WebSocketServer.cs      # Fleck WebSocket server & broadcast
-├── Config.cs               # Configuration constants
+├── Program.cs                  # Application entry point (v2.0)
+├── Config.cs                   # Configuration constants
+├── Telemetry/
+│   ├── AircraftState.cs        # Aircraft telemetry model
+│   ├── AutopilotState.cs       # Autopilot state model
+│   ├── TrafficAircraft.cs      # AI / multiplayer traffic model
+│   ├── FlightPlan.cs           # Flight plan model
+│   └── TelemetryMessage.cs     # Event-based message envelope
+├── Services/
+│   ├── SimConnectService.cs    # SimConnect lifecycle & multi-definition polling
+│   └── TelemetryEngine.cs      # Central telemetry hub: cache, events, REST feed
+├── Servers/
+│   ├── WebSocketServer.cs      # Fleck WebSocket server & structured broadcast
+│   └── ApiServer.cs            # ASP.NET minimal API (REST endpoints)
 ├── MSFSCompanionBridge.csproj
-├── lib/                    # SimConnect managed DLL (stub or real)
-├── stubs/                  # Build-time SimConnect stub source
-├── example-client.html     # Browser-based WebSocket test client
+├── lib/                        # SimConnect managed DLL (stub or real)
+├── stubs/                      # Build-time SimConnect stub source
+├── example-client.html         # Browser-based WebSocket test client
 └── README.md
 ```
 
-## Telemetry Variables
+## Data Sources & Update Frequencies
 
-The following SimConnect simulation variables are subscribed to:
-
-| SimConnect Variable | JSON Field |
-|---|---|
-| `PLANE LATITUDE` | `lat` |
-| `PLANE LONGITUDE` | `lon` |
-| `PLANE ALTITUDE` | `alt` |
-| `PLANE HEADING DEGREES TRUE` | `heading` |
-| `PLANE PITCH DEGREES` | `pitch` |
-| `PLANE BANK DEGREES` | `bank` |
-| `AIRSPEED INDICATED` | `speed` |
-| `VERTICAL SPEED` | `vs` |
-
-Data is requested at **10 Hz** (100 ms interval) and broadcast to all connected WebSocket clients.
+| Data Source | Frequency | SimConnect Variables |
+|---|---|---|
+| Aircraft State | 10 Hz | `PLANE LATITUDE`, `PLANE LONGITUDE`, `PLANE ALTITUDE`, `PLANE HEADING DEGREES TRUE`, `PLANE PITCH DEGREES`, `PLANE BANK DEGREES`, `GROUND VELOCITY`, `AIRSPEED INDICATED`, `VERTICAL SPEED` |
+| Autopilot State | 2 Hz | `AUTOPILOT MASTER`, `AUTOPILOT ALTITUDE LOCK`, `AUTOPILOT HEADING LOCK`, `AUTOPILOT HEADING LOCK DIR`, `AUTOPILOT ALTITUDE LOCK VAR` |
+| Traffic | 1 Hz | `TITLE`, `PLANE LATITUDE`, `PLANE LONGITUDE`, `PLANE ALTITUDE`, `PLANE HEADING DEGREES TRUE`, `GROUND VELOCITY` |
 
 ## Features
 
+- **Structured telemetry**: Event-based messaging with `type`, `data`, and `timestamp` fields.
+- **Multiple data sources**: Aircraft state, autopilot, and AI/multiplayer traffic.
+- **REST API**: Cached telemetry available via HTTP GET endpoints with CORS support.
 - **Automatic reconnect**: If MSFS closes or SimConnect drops, the bridge retries every 5 seconds.
 - **Multiple clients**: Any number of WebSocket clients can connect simultaneously.
-- **Graceful shutdown**: Press `Ctrl+C` to cleanly close SimConnect and the WebSocket server.
+- **Graceful shutdown**: Press `Ctrl+C` to cleanly close all services.
 - **Async architecture**: Non-blocking polling loop keeps CPU usage minimal.
 
 ## Error Handling
@@ -182,6 +325,7 @@ Data is requested at **10 Hz** (100 ms interval) and broadcast to all connected 
 | MSFS restarts | Detects disconnect, reconnects automatically |
 | Client disconnects | Removed from broadcast list, no error |
 | Malformed telemetry | Logged and skipped, does not crash |
+| REST API before data ready | Returns HTTP 503 with error message |
 
 ## License
 

@@ -1,16 +1,16 @@
 // =============================================================================
-// WebSocketServer.cs — Fleck-based WebSocket server for telemetry broadcast
+// Servers/WebSocketServer.cs — Fleck-based WebSocket server for structured
+//                                telemetry broadcast (event-based messaging)
 // =============================================================================
 
 using System.Collections.Concurrent;
-using System.Text.Json;
 using Fleck;
 
-namespace MSFSCompanionBridge;
+namespace MSFSCompanionBridge.Servers;
 
 /// <summary>
-/// Manages the WebSocket server lifecycle, client tracking, and telemetry
-/// broadcasting to all connected clients.
+/// Manages the WebSocket server lifecycle, client tracking, and broadcast
+/// of pre-serialised JSON telemetry messages to all connected clients.
 /// </summary>
 public sealed class TelemetryWebSocketServer : IDisposable
 {
@@ -28,7 +28,7 @@ public sealed class TelemetryWebSocketServer : IDisposable
         // Suppress Fleck's built-in logging to keep console clean
         FleckLog.LogAction = (level, message, ex) =>
         {
-            if (level == LogLevel.Error)
+            if (level == Fleck.LogLevel.Error)
                 Emit($"[Fleck] {message} {ex?.Message}");
         };
     }
@@ -72,15 +72,11 @@ public sealed class TelemetryWebSocketServer : IDisposable
     }
 
     /// <summary>
-    /// Serialises the telemetry payload to JSON and sends it to every
-    /// connected client. Failed sends are silently ignored (the client
-    /// will be cleaned up via OnClose).
+    /// Broadcasts a pre-serialised JSON string to every connected client.
     /// </summary>
-    public void Broadcast(TelemetryData telemetry)
+    public void Broadcast(string json)
     {
         if (_clients.IsEmpty) return;
-
-        var json = JsonSerializer.Serialize(telemetry);
 
         foreach (var kvp in _clients)
         {
