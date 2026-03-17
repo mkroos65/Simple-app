@@ -2,10 +2,10 @@
 // Config.cs — Application-wide configuration constants
 // =============================================================================
 
-namespace MSFSCompanionBridge;
+namespace SimpleFlightTracker;
 
 /// <summary>
-/// Central configuration for the MSFS Companion Bridge application.
+/// Central configuration for the Simple Flight Tracker application.
 /// </summary>
 public static class Config
 {
@@ -34,5 +34,5 @@ public static class Config
     public const int ReconnectDelayMs = 5000;
 
     /// <summary>Display name passed to the SimConnect Open call.</summary>
-    public const string SimConnectAppName = "MSFS Companion Bridge";
+    public const string SimConnectAppName = "Simple Flight Tracker";
 }

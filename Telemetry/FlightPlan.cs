@@ -4,7 +4,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace MSFSCompanionBridge.Telemetry;
+namespace SimpleFlightTracker.Telemetry;
 
 /// <summary>
 /// Represents a single waypoint in a flight plan received from the planner.

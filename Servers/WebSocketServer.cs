@@ -6,7 +6,7 @@
 using System.Collections.Concurrent;
 using Fleck;
 
-namespace MSFSCompanionBridge.Servers;
+namespace SimpleFlightTracker.Servers;
 
 /// <summary>
 /// Manages the WebSocket server lifecycle, client tracking, broadcast

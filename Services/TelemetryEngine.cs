@@ -5,9 +5,9 @@
 
 using System.Collections.Concurrent;
 using System.Text.Json;
-using MSFSCompanionBridge.Telemetry;
+using SimpleFlightTracker.Telemetry;
 
-namespace MSFSCompanionBridge.Services;
+namespace SimpleFlightTracker.Services;
 
 /// <summary>
 /// Collects data from <see cref="SimConnectService"/>, caches the latest

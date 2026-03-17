@@ -3,10 +3,10 @@
 // =============================================================================
 
 using System.Text.Json;
-using MSFSCompanionBridge.Services;
-using MSFSCompanionBridge.Telemetry;
+using SimpleFlightTracker.Services;
+using SimpleFlightTracker.Telemetry;
 
-namespace MSFSCompanionBridge.Servers;
+namespace SimpleFlightTracker.Servers;
 
 /// <summary>
 /// Lightweight HTTP REST API server that exposes the latest cached telemetry

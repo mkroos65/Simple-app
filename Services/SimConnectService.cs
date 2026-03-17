@@ -5,9 +5,9 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.FlightSimulator.SimConnect;
-using MSFSCompanionBridge.Telemetry;
+using SimpleFlightTracker.Telemetry;
 
-namespace MSFSCompanionBridge.Services;
+namespace SimpleFlightTracker.Services;
 
 /// <summary>
 /// Identifiers for SimConnect data definitions.

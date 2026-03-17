@@ -3,8 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>MSFSCompanionBridge</RootNamespace>
-    <AssemblyName>MSFSCompanionBridge</AssemblyName>
+    <RootNamespace>SimpleFlightTracker</RootNamespace>
+    <AssemblyName>SimpleFlightTracker</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

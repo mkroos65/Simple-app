@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MSFS Companion Bridge — Test Client</title>
+  <title>Simple Flight Tracker — Test Client</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -70,7 +70,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>MSFS Companion Bridge</h1>
+    <h1>Simple Flight Tracker</h1>
     <p class="subtitle">WebSocket Telemetry Test Client</p>
 
     <button id="connectBtn" onclick="toggleConnection()">Connect</button>
@@ -149,7 +149,7 @@
 
       ws.onopen = () => {
         setStatus("connected", "Connected");
-        log("Connected to MSFS Companion Bridge");
+        log("Connected to Simple Flight Tracker");
         document.getElementById("connectBtn").textContent = "Disconnect";
       };
 

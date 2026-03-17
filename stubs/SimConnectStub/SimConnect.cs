@@ -2,7 +2,7 @@
 // SimConnect Stub Library
 // =============================================================================
 // This is a build-time stub that provides the minimal SimConnect type
-// definitions needed to compile the MSFS Companion Bridge project on machines
+// definitions needed to compile the Simple Flight Tracker project on machines
 // that do not have the Microsoft Flight Simulator SDK installed.
 //
 // At runtime on Windows, the real Microsoft.FlightSimulator.SimConnect.dll

@@ -4,7 +4,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace MSFSCompanionBridge.Telemetry;
+namespace SimpleFlightTracker.Telemetry;
 
 /// <summary>
 /// Generic wrapper that adds a "type" and "timestamp" field to every

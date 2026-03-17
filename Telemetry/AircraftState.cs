@@ -5,7 +5,7 @@
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 
-namespace MSFSCompanionBridge.Telemetry;
+namespace SimpleFlightTracker.Telemetry;
 
 /// <summary>
 /// Raw SimConnect data definition layout for aircraft state.

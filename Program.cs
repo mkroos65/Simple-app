@@ -1,15 +1,15 @@
 // =============================================================================
-// Program.cs — Entry point for MSFS Companion Bridge v2.0
+// Program.cs — Entry point for Simple Flight Tracker
 // =============================================================================
 //
 // Wires together the SimConnectService, TelemetryEngine, WebSocket server,
 // and REST API server. Waits for Ctrl+C (SIGINT) for graceful shutdown.
 // =============================================================================
 
-using MSFSCompanionBridge.Servers;
-using MSFSCompanionBridge.Services;
+using SimpleFlightTracker.Servers;
+using SimpleFlightTracker.Services;
 
-namespace MSFSCompanionBridge;
+namespace SimpleFlightTracker;
 
 public static class Program
 {
@@ -102,14 +102,14 @@ public static class Program
             // Best-effort shutdown
         }
 
-        Log("MSFS Companion Bridge stopped. Goodbye!");
+        Log("Simple Flight Tracker stopped. Goodbye!");
     }
 
     private static void PrintBanner()
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("=========================================");
-        Console.WriteLine("       MSFS Companion Bridge v2.0");
+        Console.WriteLine("       Simple Flight Tracker v2.0");
         Console.WriteLine("=========================================");
         Console.ResetColor();
         Console.WriteLine();

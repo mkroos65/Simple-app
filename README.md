@@ -1,4 +1,4 @@
-# MSFS Companion Bridge
+# Simple Flight Tracker
 
 A professional Windows desktop companion application that bridges **Microsoft Flight Simulator** telemetry to **WebSocket** and **REST API** servers, enabling any web application to consume live aircraft data in real time.
 
@@ -8,8 +8,8 @@ Designed to integrate with [simpleflightplanner.com/planner](https://www.simplef
 
 ```
 ┌──────────────┐  SimConnect   ┌─────────────────────┐  WebSocket    ┌──────────────┐
-│  MS Flight   │──────────────▶│  MSFS Companion     │──────────────▶│  Web App /   │
-│  Simulator   │               │  Bridge v2.0        │   (JSON)      │  React Client│
+│  MS Flight   │──────────────▶│  Simple Flight      │──────────────▶│  Web App /   │
+│  Simulator   │               │  Tracker v2.0       │   (JSON)      │  React Client│
 └──────────────┘               │                     │               └──────────────┘
                                │  SimConnectService  │  REST API     ┌──────────────┐
                                │  TelemetryEngine    │──────────────▶│  HTTP Client │
@@ -63,7 +63,7 @@ You should see:
 
 ```
 =========================================
-       MSFS Companion Bridge v2.0
+       Simple Flight Tracker v2.0
 =========================================
 
 [12:00:00] WebSocket server running on port 29112
@@ -224,7 +224,7 @@ curl http://localhost:5555/api/traffic
 const ws = new WebSocket("ws://localhost:29112");
 
 ws.onopen = () => {
-  console.log("Connected to MSFS Companion Bridge");
+  console.log("Connected to Simple Flight Tracker");
 };
 
 ws.onmessage = (event) => {
@@ -238,7 +238,7 @@ ws.onmessage = (event) => {
 };
 
 ws.onclose = () => {
-  console.log("Disconnected from MSFS Companion Bridge");
+  console.log("Disconnected from Simple Flight Tracker");
 };
 ```
 
@@ -277,7 +277,7 @@ A ready-to-use HTML test page is provided in [`example-client.html`](example-cli
 ## Project Structure
 
 ```
-MSFS-Companion-Bridge/
+Simple-Flight-Tracker/
 ├── Program.cs                  # Application entry point (v2.0)
 ├── Config.cs                   # Configuration constants
 ├── Telemetry/
@@ -292,7 +292,7 @@ MSFS-Companion-Bridge/
 ├── Servers/
 │   ├── WebSocketServer.cs      # Fleck WebSocket server & structured broadcast
 │   └── ApiServer.cs            # ASP.NET minimal API (REST endpoints)
-├── MSFSCompanionBridge.csproj
+├── SimpleFlightTracker.csproj
 ├── lib/                        # SimConnect managed DLL (stub or real)
 ├── stubs/                      # Build-time SimConnect stub source
 ├── example-client.html         # Browser-based WebSocket test client
