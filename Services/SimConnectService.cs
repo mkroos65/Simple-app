@@ -102,6 +102,9 @@ public sealed class SimConnectService : IDisposable
         {
             Emit("Connecting to SimConnect...");
 
+            // Verify the real SimConnect assembly is loadable
+            VerifySimConnectAssembly();
+
             _simConnect = new SimConnect(
                 Config.SimConnectAppName,
                 IntPtr.Zero,
@@ -341,6 +344,28 @@ public sealed class SimConnectService : IDisposable
         _connected = false;
     }
 
+    /// <summary>
+    /// Verifies that the real SimConnect assembly can be loaded.
+    /// Throws a clear error if only the build-time stub is present.
+    /// </summary>
+    private static void VerifySimConnectAssembly()
+    {
+        try
+        {
+            // Force the CLR to load the SimConnect assembly now
+            var type = typeof(SimConnect);
+            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(type.TypeHandle);
+        }
+        catch (FileNotFoundException)
+        {
+            throw new InvalidOperationException(
+                "The real SimConnect DLL was not found. " +
+                "Copy Microsoft.FlightSimulator.SimConnect.dll from your MSFS SDK " +
+                "(C:\\MSFS SDK\\SimConnect SDK\\lib\\managed\\) into the lib/ folder, " +
+                "then rebuild with 'dotnet build'.");
+        }
+    }
+
     private void Emit(string message)
     {
         Log?.Invoke(message);
@@ -350,6 +375,13 @@ public sealed class SimConnectService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        CleanupConnection();
+        try
+        {
+            CleanupConnection();
+        }
+        catch (Exception)
+        {
+            // Swallow assembly-load or other errors during teardown
+        }
     }
 }

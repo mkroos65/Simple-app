@@ -28,6 +28,11 @@ public static class Program
             cts.Cancel();
         };
 
+        // --- WebSocket server ---------------------------------------------------
+        using var wsServer = new TelemetryWebSocketServer();
+        wsServer.Log += Log;
+        wsServer.Start();
+
         // --- SimConnect service -------------------------------------------------
         using var simService = new SimConnectService();
         simService.Log += Log;
@@ -36,11 +41,6 @@ public static class Program
         var engine = new TelemetryEngine(simService);
         engine.Log += Log;
 
-        // --- WebSocket server ---------------------------------------------------
-        using var wsServer = new TelemetryWebSocketServer();
-        wsServer.Log += Log;
-        wsServer.Start();
-
         // Connect engine output to WebSocket broadcast
         engine.MessageReady += json => wsServer.Broadcast(json);
 
@@ -48,8 +48,24 @@ public static class Program
         using var apiServer = new ApiServer(engine);
         apiServer.Log += Log;
 
-        // Start the API server in the background
-        var apiTask = Task.Run(() => apiServer.StartAsync(cts.Token), cts.Token);
+        // Start the API server in the background (do NOT pass cts.Token to
+        // Task.Run — only pass it to StartAsync so the server stays alive
+        // until we explicitly cancel).
+        var apiTask = Task.Run(async () =>
+        {
+            try
+            {
+                await apiServer.StartAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on shutdown
+            }
+            catch (Exception ex)
+            {
+                Log($"REST API error: {ex.Message}");
+            }
+        });
 
         // --- SimConnect polling loop (blocks until cancellation) ----------------
         try
@@ -61,10 +77,11 @@ public static class Program
             // Expected on Ctrl+C
         }
 
-        // Wait briefly for the API server to shut down
+        // Signal shutdown and wait briefly for the API server
+        cts.Cancel();
         try
         {
-            await apiTask.WaitAsync(TimeSpan.FromSeconds(2));
+            await apiTask.WaitAsync(TimeSpan.FromSeconds(3));
         }
         catch
         {
