@@ -3,6 +3,7 @@
 //                                  support for aircraft, autopilot, and traffic
 // =============================================================================
 
+using System.Runtime.CompilerServices;
 using Microsoft.FlightSimulator.SimConnect;
 using MSFSCompanionBridge.Telemetry;
 
@@ -73,12 +74,46 @@ public sealed class SimConnectService : IDisposable
         {
             if (!_connected)
             {
-                TryConnect();
+                try
+                {
+                    TryConnect();
+                }
+                catch (FileNotFoundException ex)
+                {
+                    // The SimConnect assembly itself could not be loaded.
+                    Emit("ERROR: SimConnect DLL not found or failed to load.");
+                    Emit(ex.Message);
+                    Emit("Copy the real Microsoft.FlightSimulator.SimConnect.dll from your MSFS SDK");
+                    Emit("  (C:\\MSFS SDK\\SimConnect SDK\\lib\\managed\\) into the lib/ folder,");
+                    Emit("  then rebuild with 'dotnet build'.");
+                    Emit($"Retrying in {Config.ReconnectDelayMs / 1000} seconds...");
+                    try { await Task.Delay(Config.ReconnectDelayMs, cancellationToken); }
+                    catch (TaskCanceledException) { break; }
+                    continue;
+                }
+                catch (FileLoadException ex)
+                {
+                    Emit("ERROR: SimConnect DLL failed to load.");
+                    Emit(ex.Message);
+                    Emit($"Retrying in {Config.ReconnectDelayMs / 1000} seconds...");
+                    try { await Task.Delay(Config.ReconnectDelayMs, cancellationToken); }
+                    catch (TaskCanceledException) { break; }
+                    continue;
+                }
             }
 
             if (_connected)
             {
-                PollMessages();
+                try
+                {
+                    PollMessages();
+                }
+                catch (FileNotFoundException)
+                {
+                    // Assembly became unavailable mid-run
+                    HandleDisconnect();
+                    continue;
+                }
             }
 
             try
@@ -96,14 +131,18 @@ public sealed class SimConnectService : IDisposable
     // Connection management
     // ---------------------------------------------------------------------
 
+    /// <summary>
+    /// Attempts to connect to SimConnect. This method is marked NoInlining
+    /// so the JIT does not try to resolve SimConnect types until this
+    /// method is actually called (allowing callers to catch
+    /// FileNotFoundException at a higher level).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private void TryConnect()
     {
         try
         {
             Emit("Connecting to SimConnect...");
-
-            // Verify the real SimConnect assembly is loadable
-            VerifySimConnectAssembly();
 
             _simConnect = new SimConnect(
                 Config.SimConnectAppName,
@@ -224,6 +263,7 @@ public sealed class SimConnectService : IDisposable
     // Polling — issues requests at different rates per data type
     // ---------------------------------------------------------------------
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private void PollMessages()
     {
         if (_simConnect is null) return;
@@ -334,6 +374,7 @@ public sealed class SimConnectService : IDisposable
         Emit($"Disconnected. Will retry in {Config.ReconnectDelayMs / 1000} seconds...");
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private void CleanupConnection()
     {
         if (_simConnect is not null)
@@ -342,28 +383,6 @@ public sealed class SimConnectService : IDisposable
             _simConnect = null;
         }
         _connected = false;
-    }
-
-    /// <summary>
-    /// Verifies that the real SimConnect assembly can be loaded.
-    /// Throws a clear error if only the build-time stub is present.
-    /// </summary>
-    private static void VerifySimConnectAssembly()
-    {
-        try
-        {
-            // Force the CLR to load the SimConnect assembly now
-            var type = typeof(SimConnect);
-            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(type.TypeHandle);
-        }
-        catch (FileNotFoundException)
-        {
-            throw new InvalidOperationException(
-                "The real SimConnect DLL was not found. " +
-                "Copy Microsoft.FlightSimulator.SimConnect.dll from your MSFS SDK " +
-                "(C:\\MSFS SDK\\SimConnect SDK\\lib\\managed\\) into the lib/ folder, " +
-                "then rebuild with 'dotnet build'.");
-        }
     }
 
     private void Emit(string message)
@@ -379,9 +398,17 @@ public sealed class SimConnectService : IDisposable
         {
             CleanupConnection();
         }
+        catch (FileNotFoundException)
+        {
+            // SimConnect DLL not available — nothing to clean up
+        }
+        catch (FileLoadException)
+        {
+            // SimConnect DLL failed to load — nothing to clean up
+        }
         catch (Exception)
         {
-            // Swallow assembly-load or other errors during teardown
+            // Best-effort cleanup
         }
     }
 }

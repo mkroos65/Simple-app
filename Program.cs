@@ -76,9 +76,13 @@ public static class Program
         {
             // Expected on Ctrl+C
         }
+        catch (Exception ex)
+        {
+            Log($"Fatal error: {ex.Message}");
+        }
 
         // Signal shutdown and wait briefly for the API server
-        cts.Cancel();
+        if (!cts.IsCancellationRequested) cts.Cancel();
         try
         {
             await apiTask.WaitAsync(TimeSpan.FromSeconds(3));
