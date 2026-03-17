@@ -29,17 +29,21 @@ A professional Windows desktop companion application that bridges **Microsoft Fl
 
 ## Quick Start
 
-### 1. Set up the SimConnect DLL
+### 1. Set up the SimConnect DLLs
 
-Copy the **managed** SimConnect assembly into the `lib/` folder:
+You need **two** DLLs from the MSFS SDK in the `lib/` folder:
 
 ```bash
-# Typical MSFS SDK location:
+# 1) Managed wrapper (.NET assembly)
 copy "C:\MSFS SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll" lib\
+
+# 2) Native library (unmanaged C++ DLL)
+copy "C:\MSFS SDK\SimConnect SDK\lib\SimConnect.dll" lib\
 ```
 
 > **Note:** The repository ships with a build-time stub so the project compiles without the SDK.
-> You **must** replace it with the real DLL before running the application.
+> You **must** replace it with the real DLLs before running the application.
+> The managed DLL is a .NET wrapper that calls into the native `SimConnect.dll` via P/Invoke — both are required at runtime.
 
 ### 2. Build
 

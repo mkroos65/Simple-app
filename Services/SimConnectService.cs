@@ -83,9 +83,11 @@ public sealed class SimConnectService : IDisposable
                     // The SimConnect assembly itself could not be loaded.
                     Emit("ERROR: SimConnect DLL not found or failed to load.");
                     Emit(ex.Message);
-                    Emit("Copy the real Microsoft.FlightSimulator.SimConnect.dll from your MSFS SDK");
-                    Emit("  (C:\\MSFS SDK\\SimConnect SDK\\lib\\managed\\) into the lib/ folder,");
-                    Emit("  then rebuild with 'dotnet build'.");
+                    Emit("");
+                    Emit("You need TWO DLLs from your MSFS SDK in the lib/ folder:");
+                    Emit("  1) Managed:  copy 'C:\\MSFS SDK\\SimConnect SDK\\lib\\managed\\Microsoft.FlightSimulator.SimConnect.dll'");
+                    Emit("  2) Native:   copy 'C:\\MSFS SDK\\SimConnect SDK\\lib\\SimConnect.dll'");
+                    Emit("Then rebuild with 'dotnet build'.");
                     Emit($"Retrying in {Config.ReconnectDelayMs / 1000} seconds...");
                     try { await Task.Delay(Config.ReconnectDelayMs, cancellationToken); }
                     catch (TaskCanceledException) { break; }

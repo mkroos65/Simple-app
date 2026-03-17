@@ -24,12 +24,26 @@
     For production use on Windows, replace lib/Microsoft.FlightSimulator.SimConnect.dll
     with the real managed assembly from the MSFS SDK:
       C:\MSFS SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll
+    AND copy the native SimConnect.dll:
+      C:\MSFS SDK\SimConnect SDK\lib\SimConnect.dll
+    into the lib/ folder as well.
   -->
   <ItemGroup>
     <Reference Include="Microsoft.FlightSimulator.SimConnect">
       <HintPath>lib/Microsoft.FlightSimulator.SimConnect.dll</HintPath>
       <Private>true</Private>
     </Reference>
+  </ItemGroup>
+
+  <!--
+    Copy the native (unmanaged) SimConnect.dll to the output directory if
+    it exists in lib/.  The managed wrapper P/Invokes into this DLL at runtime.
+  -->
+  <ItemGroup Condition="Exists('lib/SimConnect.dll')">
+    <None Include="lib/SimConnect.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>SimConnect.dll</Link>
+    </None>
   </ItemGroup>
 
 </Project>
