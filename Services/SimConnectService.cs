@@ -276,7 +276,7 @@ public sealed class SimConnectService : IDisposable
         Emit("Connected to MSFS");
     }
 
-    private void OnRecvQuit(SimConnect sender, SIMCONNECT_RECV_QUIT data)
+    private void OnRecvQuit(SimConnect sender, SIMCONNECT_RECV data)
     {
         Emit("MSFS has closed");
         HandleDisconnect();
@@ -295,17 +295,21 @@ public sealed class SimConnectService : IDisposable
         {
             var requestId = (SimRequest)data.dwRequestID;
 
+            // dwData is object[] in the real SimConnect SDK; element [0] holds the struct.
+            var dwData = data.dwData;
+            object? payload = dwData is object[] arr && arr.Length > 0 ? arr[0] : dwData;
+
             switch (requestId)
             {
-                case SimRequest.Aircraft when data.dwData is AircraftStateStruct aircraftStruct:
+                case SimRequest.Aircraft when payload is AircraftStateStruct aircraftStruct:
                     AircraftStateReceived?.Invoke(AircraftState.FromStruct(aircraftStruct));
                     break;
 
-                case SimRequest.Autopilot when data.dwData is AutopilotStateStruct apStruct:
+                case SimRequest.Autopilot when payload is AutopilotStateStruct apStruct:
                     AutopilotStateReceived?.Invoke(AutopilotState.FromStruct(apStruct));
                     break;
 
-                case SimRequest.Traffic when data.dwData is TrafficAircraftStruct trafficStruct:
+                case SimRequest.Traffic when payload is TrafficAircraftStruct trafficStruct:
                     TrafficAircraftReceived?.Invoke(TrafficAircraft.FromStruct(trafficStruct));
                     break;
             }

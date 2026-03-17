@@ -112,7 +112,7 @@ namespace Microsoft.FlightSimulator.SimConnect
         public uint dwentrynumber;
         public uint dwoutof;
         public uint dwDefineCount;
-        public object? dwData;
+        public object[]? dwData;
     }
 
     public class SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE : SIMCONNECT_RECV_SIMOBJECT_DATA
@@ -125,7 +125,7 @@ namespace Microsoft.FlightSimulator.SimConnect
 
     public delegate void SignalProcDelegate();
     public delegate void RecvOpenEventHandler(SimConnect sender, SIMCONNECT_RECV_OPEN data);
-    public delegate void RecvQuitEventHandler(SimConnect sender, SIMCONNECT_RECV_QUIT data);
+    public delegate void RecvQuitEventHandler(SimConnect sender, SIMCONNECT_RECV data);
     public delegate void RecvExceptionEventHandler(SimConnect sender, SIMCONNECT_RECV_EXCEPTION data);
     public delegate void RecvSimobjectDataBytypeEventHandler(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE data);
 
