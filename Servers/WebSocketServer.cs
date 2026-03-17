@@ -9,8 +9,9 @@ using Fleck;
 namespace MSFSCompanionBridge.Servers;
 
 /// <summary>
-/// Manages the WebSocket server lifecycle, client tracking, and broadcast
-/// of pre-serialised JSON telemetry messages to all connected clients.
+/// Manages the WebSocket server lifecycle, client tracking, broadcast
+/// of pre-serialised JSON telemetry messages, and routing of incoming
+/// messages (e.g. flight plans from the web planner).
 /// </summary>
 public sealed class TelemetryWebSocketServer : IDisposable
 {
@@ -20,6 +21,12 @@ public sealed class TelemetryWebSocketServer : IDisposable
 
     /// <summary>Raised to surface log messages to the console.</summary>
     public event Action<string>? Log;
+
+    /// <summary>
+    /// Raised when a message is received from a WebSocket client.
+    /// Used to route flight plan messages to the TelemetryEngine.
+    /// </summary>
+    public event Action<string>? MessageReceived;
 
     public TelemetryWebSocketServer()
     {
@@ -60,6 +67,12 @@ public sealed class TelemetryWebSocketServer : IDisposable
                 }
 
                 Emit($"Client disconnected ({_clients.Count} total)");
+            };
+
+            socket.OnMessage = message =>
+            {
+                // Route incoming messages (e.g. flight plans) to the engine
+                MessageReceived?.Invoke(message);
             };
 
             socket.OnError = ex =>

@@ -23,6 +23,7 @@ public struct AircraftStateStruct
     public double GroundVelocity;    // knots
     public double IndicatedAirspeed; // knots
     public double VerticalSpeed;     // feet per minute
+    public double SimOnGround;       // bool (0.0 or 1.0)
 }
 
 /// <summary>
@@ -33,8 +34,8 @@ public sealed class AircraftState
     [JsonPropertyName("lat")]
     public double Lat { get; set; }
 
-    [JsonPropertyName("lon")]
-    public double Lon { get; set; }
+    [JsonPropertyName("lng")]
+    public double Lng { get; set; }
 
     [JsonPropertyName("altitude")]
     public double Altitude { get; set; }
@@ -48,24 +49,32 @@ public sealed class AircraftState
     [JsonPropertyName("bank")]
     public double Bank { get; set; }
 
-    [JsonPropertyName("groundSpeed")]
-    public double GroundSpeed { get; set; }
+    [JsonPropertyName("airspeed")]
+    public double Airspeed { get; set; }
+
+    [JsonPropertyName("groundspeed")]
+    public double Groundspeed { get; set; }
 
     [JsonPropertyName("verticalSpeed")]
     public double VerticalSpeed { get; set; }
+
+    [JsonPropertyName("onGround")]
+    public bool OnGround { get; set; }
 
     public static AircraftState FromStruct(AircraftStateStruct s)
     {
         return new AircraftState
         {
             Lat           = Math.Round(s.Latitude, 6),
-            Lon           = Math.Round(s.Longitude, 6),
+            Lng           = Math.Round(s.Longitude, 6),
             Altitude      = Math.Round(s.Altitude, 1),
             Heading       = Math.Round(s.Heading, 1),
             Pitch         = Math.Round(s.Pitch, 2),
             Bank          = Math.Round(s.Bank, 2),
-            GroundSpeed   = Math.Round(s.GroundVelocity, 1),
-            VerticalSpeed = Math.Round(s.VerticalSpeed, 1)
+            Airspeed      = Math.Round(s.IndicatedAirspeed, 1),
+            Groundspeed   = Math.Round(s.GroundVelocity, 1),
+            VerticalSpeed = Math.Round(s.VerticalSpeed, 1),
+            OnGround      = s.SimOnGround > 0.5
         };
     }
 }

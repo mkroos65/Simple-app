@@ -1,5 +1,5 @@
 // =============================================================================
-// Telemetry/FlightPlan.cs — Flight plan model
+// Telemetry/FlightPlan.cs — Flight plan model (matches simpleflightplanner.com)
 // =============================================================================
 
 using System.Text.Json.Serialization;
@@ -7,31 +7,36 @@ using System.Text.Json.Serialization;
 namespace MSFSCompanionBridge.Telemetry;
 
 /// <summary>
-/// Represents a single waypoint in a flight plan.
+/// Represents a single waypoint in a flight plan received from the planner.
 /// </summary>
 public sealed class FlightPlanWaypoint
 {
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("lat")]
     public double Lat { get; set; }
 
-    [JsonPropertyName("lon")]
-    public double Lon { get; set; }
-
-    [JsonPropertyName("altitude")]
-    public double Altitude { get; set; }
+    [JsonPropertyName("lng")]
+    public double Lng { get; set; }
 }
 
 /// <summary>
-/// JSON-serialisable flight plan payload.
+/// Flight plan received from the web planner via WebSocket.
+/// Protocol: { "type": "flightplan", "departure": "KSEA", "arrival": "KPDX",
+///             "waypoints": [...], "cruisingAltitude": 8000 }
 /// </summary>
 public sealed class FlightPlan
 {
+    [JsonPropertyName("departure")]
+    public string Departure { get; set; } = string.Empty;
+
+    [JsonPropertyName("arrival")]
+    public string Arrival { get; set; } = string.Empty;
+
     [JsonPropertyName("waypoints")]
     public List<FlightPlanWaypoint> Waypoints { get; set; } = new();
 
-    [JsonPropertyName("activeLegIndex")]
-    public int ActiveLegIndex { get; set; }
+    [JsonPropertyName("cruisingAltitude")]
+    public double CruisingAltitude { get; set; }
 }

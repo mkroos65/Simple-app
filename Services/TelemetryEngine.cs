@@ -4,6 +4,7 @@
 // =============================================================================
 
 using System.Collections.Concurrent;
+using System.Text.Json;
 using MSFSCompanionBridge.Telemetry;
 
 namespace MSFSCompanionBridge.Services;
@@ -12,6 +13,9 @@ namespace MSFSCompanionBridge.Services;
 /// Collects data from <see cref="SimConnectService"/>, caches the latest
 /// state for each data source, and emits structured messages to subscribers
 /// (WebSocket server, REST API).
+///
+/// Also emits flat "telemetry" messages at ~1 Hz matching the
+/// simpleflightplanner.com WebSocket protocol.
 /// </summary>
 public sealed class TelemetryEngine
 {
@@ -24,6 +28,10 @@ public sealed class TelemetryEngine
     private List<TrafficAircraft> _latestTraffic = new();
     private List<TrafficAircraft> _trafficBuffer = new();
 
+    // Planner telemetry throttle: emit at ~1 Hz (every ~10 aircraft ticks)
+    private int _plannerTickCounter;
+    private const int PlannerTickInterval = 10;  // 10 ticks × 100 ms = 1 Hz
+
     /// <summary>
     /// Raised whenever a structured telemetry message is ready to broadcast.
     /// The string payload is a pre-serialised JSON message.
@@ -32,6 +40,11 @@ public sealed class TelemetryEngine
 
     /// <summary>Raised to surface log messages to the console.</summary>
     public event Action<string>? Log;
+
+    /// <summary>
+    /// Raised when a flight plan is received from the web planner.
+    /// </summary>
+    public event Action<FlightPlan>? FlightPlanReceived;
 
     public TelemetryEngine(SimConnectService simConnect)
     {
@@ -68,65 +81,99 @@ public sealed class TelemetryEngine
     {
         _latestAircraft = state;
 
-        var message = TelemetryMessage<AircraftState>.Create(
-            MessageTypes.AircraftUpdate, state);
-        EmitMessage(message);
+        // Emit the flat "telemetry" message for the planner at ~1 Hz
+        _plannerTickCounter++;
+        if (_plannerTickCounter >= PlannerTickInterval)
+        {
+            _plannerTickCounter = 0;
+            EmitPlannerTelemetry(state);
+        }
     }
 
     private void OnAutopilotState(AutopilotState state)
     {
         _latestAutopilot = state;
-
-        var message = TelemetryMessage<AutopilotState>.Create(
-            MessageTypes.AutopilotUpdate, state);
-        EmitMessage(message);
     }
 
     private void OnTrafficAircraft(TrafficAircraft aircraft)
     {
-        // Traffic arrives one aircraft at a time per request cycle.
-        // We buffer them and flush on next aircraft update (which runs at
-        // a higher rate). A simpler approach: just add to the list and
-        // emit the full list each time a traffic response completes.
         lock (_trafficLock)
         {
             _trafficBuffer.Add(aircraft);
         }
 
-        // Flush the buffer periodically via the dedicated method
         FlushTrafficBuffer();
     }
 
     /// <summary>
     /// Publishes the buffered traffic list and resets the buffer.
-    /// Called after each traffic polling cycle.
     /// </summary>
     private void FlushTrafficBuffer()
     {
-        List<TrafficAircraft> snapshot;
         lock (_trafficLock)
         {
             if (_trafficBuffer.Count == 0) return;
-            snapshot = new List<TrafficAircraft>(_trafficBuffer);
-            _latestTraffic = snapshot;
+            _latestTraffic = new List<TrafficAircraft>(_trafficBuffer);
             _trafficBuffer = new List<TrafficAircraft>();
         }
-
-        var message = TelemetryMessage<List<TrafficAircraft>>.Create(
-            MessageTypes.TrafficUpdate, snapshot);
-        EmitMessage(message);
     }
 
-    private void EmitMessage<T>(TelemetryMessage<T> message)
+    // ---------------------------------------------------------------------
+    // Planner telemetry (flat JSON, ~1 Hz)
+    // ---------------------------------------------------------------------
+
+    private void EmitPlannerTelemetry(AircraftState state)
     {
         try
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(message);
+            var msg = PlannerTelemetryMessage.FromAircraftState(state);
+            var json = JsonSerializer.Serialize(msg);
             MessageReady?.Invoke(json);
         }
         catch (Exception ex)
         {
-            Log?.Invoke($"Error serialising telemetry message: {ex.Message}");
+            Log?.Invoke($"Error serialising planner telemetry: {ex.Message}");
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Incoming messages from WebSocket clients
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Processes an incoming WebSocket message from a client (e.g. flight plan).
+    /// </summary>
+    public void HandleIncomingMessage(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("type", out var typeProp))
+                return;
+
+            var type = typeProp.GetString();
+
+            switch (type)
+            {
+                case "flightplan":
+                    var plan = JsonSerializer.Deserialize<FlightPlan>(json);
+                    if (plan is not null)
+                    {
+                        Log?.Invoke($"Flight plan received: {plan.Departure} -> {plan.Arrival} ({plan.Waypoints.Count} waypoints)");
+                        FlightPlanReceived?.Invoke(plan);
+                    }
+                    break;
+
+                default:
+                    Log?.Invoke($"Unknown incoming message type: {type}");
+                    break;
+            }
+        }
+        catch (JsonException ex)
+        {
+            Log?.Invoke($"Error parsing incoming message: {ex.Message}");
         }
     }
 }

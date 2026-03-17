@@ -77,7 +77,7 @@
 
     <div id="statusBar" class="status disconnected">Disconnected</div>
 
-    <h3 style="margin-bottom:0.5rem; color:#888;">Aircraft State <span style="font-size:0.7rem; color:#555;">(10 Hz)</span></h3>
+    <h3 style="margin-bottom:0.5rem; color:#888;">Aircraft State <span style="font-size:0.7rem; color:#555;">(~1 Hz planner telemetry)</span></h3>
     <div class="grid">
       <div class="card">
         <div class="label">Latitude</div>
@@ -86,7 +86,7 @@
       </div>
       <div class="card">
         <div class="label">Longitude</div>
-        <div class="value" id="lon">—</div>
+        <div class="value" id="lng">—</div>
         <div class="unit">degrees</div>
       </div>
       <div class="card">
@@ -100,8 +100,13 @@
         <div class="unit">degrees true</div>
       </div>
       <div class="card">
+        <div class="label">Airspeed</div>
+        <div class="value" id="airspeed">—</div>
+        <div class="unit">knots</div>
+      </div>
+      <div class="card">
         <div class="label">Ground Speed</div>
-        <div class="value" id="speed">—</div>
+        <div class="value" id="groundspeed">—</div>
         <div class="unit">knots</div>
       </div>
       <div class="card">
@@ -110,46 +115,15 @@
         <div class="unit">ft/min</div>
       </div>
       <div class="card">
-        <div class="label">Pitch</div>
-        <div class="value" id="pitch">—</div>
-        <div class="unit">degrees</div>
-      </div>
-      <div class="card">
-        <div class="label">Bank</div>
-        <div class="value" id="bank">—</div>
-        <div class="unit">degrees</div>
+        <div class="label">On Ground</div>
+        <div class="value" id="onGround">—</div>
       </div>
     </div>
 
-    <h3 style="margin-bottom:0.5rem; color:#888;">Autopilot <span style="font-size:0.7rem; color:#555;">(2 Hz)</span></h3>
-    <div class="grid">
-      <div class="card">
-        <div class="label">AP Master</div>
-        <div class="value" id="apMaster">—</div>
-      </div>
-      <div class="card">
-        <div class="label">Alt Lock</div>
-        <div class="value" id="apAltLock">—</div>
-      </div>
-      <div class="card">
-        <div class="label">Hdg Lock</div>
-        <div class="value" id="apHdgLock">—</div>
-      </div>
-      <div class="card">
-        <div class="label">Hdg Bug</div>
-        <div class="value" id="apHdgDir">—</div>
-        <div class="unit">degrees</div>
-      </div>
-      <div class="card">
-        <div class="label">Target Alt</div>
-        <div class="value" id="apAltVar">—</div>
-        <div class="unit">feet</div>
-      </div>
-    </div>
-
-    <h3 style="margin-bottom:0.5rem; color:#888;">Traffic <span style="font-size:0.7rem; color:#555;">(1 Hz)</span></h3>
-    <div id="trafficList" style="background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:1rem; margin-bottom:1.5rem; min-height:2rem; font-size:0.85rem; color:#8b949e;">
-      No traffic data yet
+    <h3 style="margin-bottom:0.5rem; color:#888;">Send Flight Plan</h3>
+    <div style="background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+      <button onclick="sendTestFlightPlan()" style="margin-bottom:0.5rem;">Send Test Flight Plan (KSEA → KPDX)</button>
+      <div id="fpStatus" style="font-size:0.85rem; color:#8b949e;">No flight plan sent yet</div>
     </div>
 
     <h3 style="margin-bottom:0.5rem; color:#888;">Event Log</h3>
@@ -169,9 +143,9 @@
 
     function connect() {
       setStatus("connecting", "Connecting...");
-      log("Connecting to ws://localhost:8765 ...");
+      log("Connecting to ws://localhost:29112 ...");
 
-      ws = new WebSocket("ws://localhost:8765");
+      ws = new WebSocket("ws://localhost:29112");
 
       ws.onopen = () => {
         setStatus("connected", "Connected");
@@ -181,48 +155,23 @@
 
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data);
-          const d = msg.data;
+          const d = JSON.parse(event.data);
 
-          switch (msg.type) {
-            case "aircraft:update":
-              document.getElementById("lat").textContent     = d.lat.toFixed(4);
-              document.getElementById("lon").textContent     = d.lon.toFixed(4);
-              document.getElementById("alt").textContent     = d.altitude.toFixed(0);
-              document.getElementById("heading").textContent = d.heading.toFixed(1);
-              document.getElementById("speed").textContent   = d.groundSpeed.toFixed(1);
-              document.getElementById("vs").textContent      = d.verticalSpeed.toFixed(0);
-              document.getElementById("pitch").textContent   = d.pitch.toFixed(2);
-              document.getElementById("bank").textContent    = d.bank.toFixed(2);
-              break;
-
-            case "autopilot:update":
-              document.getElementById("apMaster").textContent  = d.master ? "ON" : "OFF";
-              document.getElementById("apMaster").style.color  = d.master ? "#4caf50" : "#f44336";
-              document.getElementById("apAltLock").textContent  = d.altitudeLock ? "ON" : "OFF";
-              document.getElementById("apAltLock").style.color  = d.altitudeLock ? "#4caf50" : "#f44336";
-              document.getElementById("apHdgLock").textContent  = d.headingLock ? "ON" : "OFF";
-              document.getElementById("apHdgLock").style.color  = d.headingLock ? "#4caf50" : "#f44336";
-              document.getElementById("apHdgDir").textContent   = d.headingLockDir.toFixed(0);
-              document.getElementById("apAltVar").textContent   = d.altitudeLockVar.toFixed(0);
-              break;
-
-            case "traffic:update":
-              const list = document.getElementById("trafficList");
-              if (!d || d.length === 0) {
-                list.textContent = "No nearby traffic";
-              } else {
-                list.innerHTML = d.map(t =>
-                  `<div style="margin-bottom:4px;">` +
-                  `<span style="color:#00d4ff;">${t.callsign || "Unknown"}</span> — ` +
-                  `${t.altitude.toFixed(0)} ft, ${t.heading.toFixed(0)}°, ${t.speed.toFixed(0)} kts` +
-                  `</div>`
-                ).join("");
-              }
+          switch (d.type) {
+            case "telemetry":
+              document.getElementById("lat").textContent        = d.lat.toFixed(4);
+              document.getElementById("lng").textContent        = d.lng.toFixed(4);
+              document.getElementById("alt").textContent        = d.altitude.toFixed(0);
+              document.getElementById("heading").textContent    = d.heading.toFixed(1);
+              document.getElementById("airspeed").textContent   = d.airspeed.toFixed(1);
+              document.getElementById("groundspeed").textContent = d.groundspeed.toFixed(1);
+              document.getElementById("vs").textContent         = d.verticalSpeed.toFixed(0);
+              document.getElementById("onGround").textContent   = d.onGround ? "YES" : "NO";
+              document.getElementById("onGround").style.color   = d.onGround ? "#ff9800" : "#4caf50";
               break;
 
             default:
-              log("Unknown message type: " + msg.type);
+              log("Message type: " + d.type);
           }
         } catch (e) {
           log("Error parsing message: " + e.message);
@@ -245,6 +194,26 @@
       const el = document.getElementById("statusBar");
       el.className = "status " + cls;
       el.textContent = text;
+    }
+
+    function sendTestFlightPlan() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        document.getElementById("fpStatus").textContent = "Not connected!";
+        return;
+      }
+      const plan = {
+        type: "flightplan",
+        departure: "KSEA",
+        arrival: "KPDX",
+        waypoints: [
+          { name: "KSEA", lat: 47.45, lng: -122.31 },
+          { name: "KPDX", lat: 45.59, lng: -122.60 }
+        ],
+        cruisingAltitude: 8000
+      };
+      ws.send(JSON.stringify(plan));
+      document.getElementById("fpStatus").textContent = "Sent: KSEA -> KPDX (2 waypoints, 8000 ft)";
+      log("Flight plan sent to companion bridge");
     }
 
     function log(msg) {

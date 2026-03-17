@@ -12,8 +12,8 @@ public static class Config
     /// <summary>WebSocket server host address.</summary>
     public const string WebSocketHost = "0.0.0.0";
 
-    /// <summary>WebSocket server port.</summary>
-    public const int WebSocketPort = 8765;
+    /// <summary>WebSocket server port (matches simpleflightplanner.com protocol).</summary>
+    public const int WebSocketPort = 29112;
 
     /// <summary>Full WebSocket server URI used by Fleck.</summary>
     public static string WebSocketUri => $"ws://{WebSocketHost}:{WebSocketPort}";

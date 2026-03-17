@@ -44,6 +44,16 @@ public static class Program
         // Connect engine output to WebSocket broadcast
         engine.MessageReady += json => wsServer.Broadcast(json);
 
+        // Route incoming WebSocket messages (e.g. flight plans) to the engine
+        wsServer.MessageReceived += json => engine.HandleIncomingMessage(json);
+
+        // Log received flight plans
+        engine.FlightPlanReceived += plan =>
+        {
+            Log($"Flight plan loaded: {plan.Departure} -> {plan.Arrival} " +
+                $"({plan.Waypoints.Count} waypoints, cruise {plan.CruisingAltitude} ft)");
+        };
+
         // --- REST API server ----------------------------------------------------
         using var apiServer = new ApiServer(engine);
         apiServer.Log += Log;

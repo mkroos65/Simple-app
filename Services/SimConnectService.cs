@@ -208,6 +208,9 @@ public sealed class SimConnectService : IDisposable
         _simConnect.AddToDataDefinition(SimDefinition.Aircraft,
             "VERTICAL SPEED", "feet per minute",
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        _simConnect.AddToDataDefinition(SimDefinition.Aircraft,
+            "SIM ON GROUND", "bool",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
         _simConnect.RegisterDataDefineStruct<AircraftStateStruct>(SimDefinition.Aircraft);
     }

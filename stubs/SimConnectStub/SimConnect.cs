@@ -66,6 +66,12 @@ namespace Microsoft.FlightSimulator.SimConnect
         TAGGED = 2
     }
 
+    public enum SIMCONNECT_DATA_SET_FLAG : uint
+    {
+        DEFAULT = 0,
+        TAGGED = 1
+    }
+
     // -------------------------------------------------------------------------
     // Receive data structures
     // -------------------------------------------------------------------------
@@ -169,6 +175,15 @@ namespace Microsoft.FlightSimulator.SimConnect
             Enum defineId,
             uint radiusMeters,
             SIMCONNECT_SIMOBJECT_TYPE type)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetDataOnSimObject(
+            Enum defineId,
+            uint objectId,
+            SIMCONNECT_DATA_SET_FLAG flags,
+            object data)
         {
             throw new NotImplementedException();
         }
