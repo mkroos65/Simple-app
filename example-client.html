@@ -77,6 +77,7 @@
 
     <div id="statusBar" class="status disconnected">Disconnected</div>
 
+    <h3 style="margin-bottom:0.5rem; color:#888;">Aircraft State <span style="font-size:0.7rem; color:#555;">(10 Hz)</span></h3>
     <div class="grid">
       <div class="card">
         <div class="label">Latitude</div>
@@ -99,7 +100,7 @@
         <div class="unit">degrees true</div>
       </div>
       <div class="card">
-        <div class="label">Airspeed</div>
+        <div class="label">Ground Speed</div>
         <div class="value" id="speed">—</div>
         <div class="unit">knots</div>
       </div>
@@ -118,6 +119,37 @@
         <div class="value" id="bank">—</div>
         <div class="unit">degrees</div>
       </div>
+    </div>
+
+    <h3 style="margin-bottom:0.5rem; color:#888;">Autopilot <span style="font-size:0.7rem; color:#555;">(2 Hz)</span></h3>
+    <div class="grid">
+      <div class="card">
+        <div class="label">AP Master</div>
+        <div class="value" id="apMaster">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Alt Lock</div>
+        <div class="value" id="apAltLock">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Hdg Lock</div>
+        <div class="value" id="apHdgLock">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Hdg Bug</div>
+        <div class="value" id="apHdgDir">—</div>
+        <div class="unit">degrees</div>
+      </div>
+      <div class="card">
+        <div class="label">Target Alt</div>
+        <div class="value" id="apAltVar">—</div>
+        <div class="unit">feet</div>
+      </div>
+    </div>
+
+    <h3 style="margin-bottom:0.5rem; color:#888;">Traffic <span style="font-size:0.7rem; color:#555;">(1 Hz)</span></h3>
+    <div id="trafficList" style="background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:1rem; margin-bottom:1.5rem; min-height:2rem; font-size:0.85rem; color:#8b949e;">
+      No traffic data yet
     </div>
 
     <h3 style="margin-bottom:0.5rem; color:#888;">Event Log</h3>
@@ -149,15 +181,49 @@
 
       ws.onmessage = (event) => {
         try {
-          const d = JSON.parse(event.data);
-          document.getElementById("lat").textContent     = d.lat.toFixed(4);
-          document.getElementById("lon").textContent     = d.lon.toFixed(4);
-          document.getElementById("alt").textContent     = d.alt.toFixed(0);
-          document.getElementById("heading").textContent = d.heading.toFixed(1);
-          document.getElementById("speed").textContent   = d.speed.toFixed(1);
-          document.getElementById("vs").textContent      = d.vs.toFixed(0);
-          document.getElementById("pitch").textContent   = d.pitch.toFixed(2);
-          document.getElementById("bank").textContent    = d.bank.toFixed(2);
+          const msg = JSON.parse(event.data);
+          const d = msg.data;
+
+          switch (msg.type) {
+            case "aircraft:update":
+              document.getElementById("lat").textContent     = d.lat.toFixed(4);
+              document.getElementById("lon").textContent     = d.lon.toFixed(4);
+              document.getElementById("alt").textContent     = d.altitude.toFixed(0);
+              document.getElementById("heading").textContent = d.heading.toFixed(1);
+              document.getElementById("speed").textContent   = d.groundSpeed.toFixed(1);
+              document.getElementById("vs").textContent      = d.verticalSpeed.toFixed(0);
+              document.getElementById("pitch").textContent   = d.pitch.toFixed(2);
+              document.getElementById("bank").textContent    = d.bank.toFixed(2);
+              break;
+
+            case "autopilot:update":
+              document.getElementById("apMaster").textContent  = d.master ? "ON" : "OFF";
+              document.getElementById("apMaster").style.color  = d.master ? "#4caf50" : "#f44336";
+              document.getElementById("apAltLock").textContent  = d.altitudeLock ? "ON" : "OFF";
+              document.getElementById("apAltLock").style.color  = d.altitudeLock ? "#4caf50" : "#f44336";
+              document.getElementById("apHdgLock").textContent  = d.headingLock ? "ON" : "OFF";
+              document.getElementById("apHdgLock").style.color  = d.headingLock ? "#4caf50" : "#f44336";
+              document.getElementById("apHdgDir").textContent   = d.headingLockDir.toFixed(0);
+              document.getElementById("apAltVar").textContent   = d.altitudeLockVar.toFixed(0);
+              break;
+
+            case "traffic:update":
+              const list = document.getElementById("trafficList");
+              if (!d || d.length === 0) {
+                list.textContent = "No nearby traffic";
+              } else {
+                list.innerHTML = d.map(t =>
+                  `<div style="margin-bottom:4px;">` +
+                  `<span style="color:#00d4ff;">${t.callsign || "Unknown"}</span> — ` +
+                  `${t.altitude.toFixed(0)} ft, ${t.heading.toFixed(0)}°, ${t.speed.toFixed(0)} kts` +
+                  `</div>`
+                ).join("");
+              }
+              break;
+
+            default:
+              log("Unknown message type: " + msg.type);
+          }
         } catch (e) {
           log("Error parsing message: " + e.message);
         }
