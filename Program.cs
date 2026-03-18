@@ -47,11 +47,12 @@ public static class Program
         // Route incoming WebSocket messages (e.g. flight plans) to the engine
         wsServer.MessageReceived += json => engine.HandleIncomingMessage(json);
 
-        // Log received flight plans
+        // When a flight plan is received from the planner, load it into MSFS
         engine.FlightPlanReceived += plan =>
         {
-            Log($"Flight plan loaded: {plan.Departure} -> {plan.Arrival} " +
+            Log($"Flight plan received: {plan.Departure} -> {plan.Arrival} " +
                 $"({plan.Waypoints.Count} waypoints, cruise {plan.CruisingAltitude} ft)");
+            simService.LoadFlightPlan(plan);
         };
 
         // --- REST API server ----------------------------------------------------

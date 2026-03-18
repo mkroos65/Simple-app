@@ -188,6 +188,11 @@ namespace Microsoft.FlightSimulator.SimConnect
             throw new NotImplementedException();
         }
 
+        public void FlightPlanLoad(string szFileName)
+        {
+            throw new NotImplementedException();
+        }
+
         public void ReceiveMessage()
         {
             throw new NotImplementedException();

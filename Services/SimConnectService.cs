@@ -369,6 +369,46 @@ public sealed class SimConnectService : IDisposable
     }
 
     // ---------------------------------------------------------------------
+    // Flight plan loading
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Writes the flight plan to a .pln file and loads it into MSFS
+    /// using SimConnect.FlightPlanLoad.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void LoadFlightPlan(FlightPlan plan)
+    {
+        if (_simConnect is null || !_connected)
+        {
+            Emit("Cannot load flight plan: not connected to MSFS");
+            return;
+        }
+
+        try
+        {
+            // Write PLN file to a temp directory next to the executable
+            var plnDir = Path.Combine(AppContext.BaseDirectory, "flightplans");
+            var plnPath = plan.WritePln(plnDir);
+
+            Emit($"Loading flight plan into MSFS: {plnPath}");
+
+            // SimConnect_FlightPlanLoad expects path without .pln extension
+            var pathWithoutExtension = Path.Combine(
+                Path.GetDirectoryName(plnPath) ?? plnDir,
+                Path.GetFileNameWithoutExtension(plnPath));
+
+            _simConnect.FlightPlanLoad(pathWithoutExtension);
+
+            Emit($"Flight plan loaded: {plan.Departure} -> {plan.Arrival}");
+        }
+        catch (Exception ex)
+        {
+            Emit($"Error loading flight plan: {ex.Message}");
+        }
+    }
+
+    // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
 
