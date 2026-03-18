@@ -375,6 +375,7 @@ public sealed class SimConnectService : IDisposable
     /// <summary>
     /// Writes the flight plan to a .pln file and loads it into MSFS
     /// using SimConnect.FlightPlanLoad.
+    /// Also saves a copy to the user's Documents folder for manual loading.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void LoadFlightPlan(FlightPlan plan)
@@ -387,20 +388,28 @@ public sealed class SimConnectService : IDisposable
 
         try
         {
-            // Write PLN file to a temp directory next to the executable
-            var plnDir = Path.Combine(AppContext.BaseDirectory, "flightplans");
-            var plnPath = plan.WritePln(plnDir);
+            // Save to Documents\Simple Flight Tracker\FlightPlans for easy access
+            var docsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "Simple Flight Tracker", "FlightPlans");
+            var plnPath = plan.WritePln(docsDir);
 
-            Emit($"Loading flight plan into MSFS: {plnPath}");
+            Emit($"Flight plan saved: {plnPath}");
 
-            // SimConnect_FlightPlanLoad expects path without .pln extension
-            var pathWithoutExtension = Path.Combine(
-                Path.GetDirectoryName(plnPath) ?? plnDir,
+            // SimConnect_FlightPlanLoad — SDK says "no need to enter extension"
+            var pathNoExt = Path.Combine(
+                Path.GetDirectoryName(plnPath) ?? docsDir,
                 Path.GetFileNameWithoutExtension(plnPath));
 
-            _simConnect.FlightPlanLoad(pathWithoutExtension);
+            Emit($"Calling SimConnect FlightPlanLoad...");
+            _simConnect.FlightPlanLoad(pathNoExt);
+            Emit($"FlightPlanLoad called successfully: {plan.Departure} -> {plan.Arrival}");
 
-            Emit($"Flight plan loaded: {plan.Departure} -> {plan.Arrival}");
+            // Note: SDK docs state "NO ERROR, NO RESPONSE" for this function,
+            // meaning it may silently fail. If the plan doesn't appear in MSFS,
+            // the user can load the .pln file manually from the World Map.
+            Emit($"If the plan doesn't appear in MSFS, load it manually from:");
+            Emit($"  {plnPath}");
         }
         catch (Exception ex)
         {

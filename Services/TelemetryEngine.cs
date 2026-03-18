@@ -147,13 +147,19 @@ public sealed class TelemetryEngine
     {
         try
         {
+            Log?.Invoke($"WebSocket message received ({json.Length} chars)");
+
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
             if (!root.TryGetProperty("type", out var typeProp))
+            {
+                Log?.Invoke("Message has no 'type' field — ignoring");
                 return;
+            }
 
             var type = typeProp.GetString();
+            Log?.Invoke($"Message type: {type}");
 
             switch (type)
             {
@@ -161,8 +167,13 @@ public sealed class TelemetryEngine
                     var plan = JsonSerializer.Deserialize<FlightPlan>(json);
                     if (plan is not null)
                     {
-                        Log?.Invoke($"Flight plan received: {plan.Departure} -> {plan.Arrival} ({plan.Waypoints.Count} waypoints)");
+                        Log?.Invoke($"Flight plan parsed: {plan.Departure} -> {plan.Arrival} " +
+                            $"({plan.Waypoints.Count} waypoints, cruise {plan.CruisingAltitude} ft)");
                         FlightPlanReceived?.Invoke(plan);
+                    }
+                    else
+                    {
+                        Log?.Invoke("Flight plan deserialization returned null");
                     }
                     break;
 
@@ -174,6 +185,10 @@ public sealed class TelemetryEngine
         catch (JsonException ex)
         {
             Log?.Invoke($"Error parsing incoming message: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Log?.Invoke($"Error handling incoming message: {ex.Message}");
         }
     }
 }
