@@ -53,37 +53,47 @@ public sealed class FlightPlan
         var fileName = $"{Departure}_{Arrival}.pln";
         var filePath = Path.Combine(directory, fileName);
 
+        // Find departure and destination waypoints for LLA fields
+        var depWp = Waypoints.FirstOrDefault(w => w.Name == Departure);
+        var arrWp = Waypoints.FirstOrDefault(w => w.Name == Arrival);
+        var depLla = depWp != null ? ToWorldPosition(depWp.Lat, depWp.Lng, 0) : "";
+        var arrLla = arrWp != null ? ToWorldPosition(arrWp.Lat, arrWp.Lng, 0) : "";
+
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         sb.AppendLine("<SimBase.Document Type=\"AceXML\" version=\"1,0\">");
         sb.AppendLine("    <Descr>AceXML Document</Descr>");
         sb.AppendLine("    <FlightPlan.FlightPlan>");
-        sb.AppendLine(CultureInvariant($"        <Title>{Departure} to {Arrival}</Title>"));
+        sb.AppendLine($"        <Title>{Departure} to {Arrival}</Title>");
+        sb.AppendLine($"        <Descr>{Departure} to {Arrival}</Descr>");
         sb.AppendLine("        <FPType>VFR</FPType>");
-        sb.AppendLine(CultureInvariant($"        <CruisingAlt>{CruisingAltitude:F0}</CruisingAlt>"));
-        sb.AppendLine(CultureInvariant($"        <DepartureID>{Departure}</DepartureID>"));
-        sb.AppendLine(CultureInvariant($"        <DestinationID>{Arrival}</DestinationID>"));
-        sb.AppendLine(CultureInvariant($"        <Descr>{Departure} to {Arrival}</Descr>"));
+        sb.AppendLine("        <RouteType>Direct</RouteType>");
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
+            "        <CruisingAlt>{0:F0}</CruisingAlt>", CruisingAltitude));
+        sb.AppendLine($"        <DepartureID>{Departure}</DepartureID>");
+        sb.AppendLine($"        <DepartureLLA>{depLla}</DepartureLLA>");
+        sb.AppendLine($"        <DestinationID>{Arrival}</DestinationID>");
+        sb.AppendLine($"        <DestinationLLA>{arrLla}</DestinationLLA>");
         sb.AppendLine("        <AppVersion>");
         sb.AppendLine("            <AppVersionMajor>11</AppVersionMajor>");
-        sb.AppendLine("            <AppVersionBuild>0</AppVersionBuild>");
+        sb.AppendLine("            <AppVersionBuild>282174</AppVersionBuild>");
         sb.AppendLine("        </AppVersion>");
 
         foreach (var wp in Waypoints)
         {
-            // Determine waypoint type: first/last are airports, middle are user waypoints
             var isAirport = wp.Name == Departure || wp.Name == Arrival;
             var wpType = isAirport ? "Airport" : "User";
-            var lla = string.Format(CultureInfo.InvariantCulture,
-                "{0:F6},{1:F6},{2:F6}", wp.Lat, wp.Lng, CruisingAltitude);
+            // Airport waypoints get altitude 0, en-route waypoints get cruising altitude
+            var wpAlt = isAirport ? 0.0 : CruisingAltitude;
+            var worldPos = ToWorldPosition(wp.Lat, wp.Lng, wpAlt);
 
-            sb.AppendLine(CultureInvariant($"        <ATCWaypoint id=\"{wp.Name}\">"));
-            sb.AppendLine(CultureInvariant($"            <ATCWaypointType>{wpType}</ATCWaypointType>"));
-            sb.AppendLine(CultureInvariant($"            <WorldPosition>{lla}</WorldPosition>"));
+            sb.AppendLine($"        <ATCWaypoint id=\"{wp.Name}\">");
+            sb.AppendLine($"            <ATCWaypointType>{wpType}</ATCWaypointType>");
+            sb.AppendLine($"            <WorldPosition>{worldPos}</WorldPosition>");
             if (isAirport)
             {
                 sb.AppendLine("            <ICAO>");
-                sb.AppendLine(CultureInvariant($"                <ICAOIdent>{wp.Name}</ICAOIdent>"));
+                sb.AppendLine($"                <ICAOIdent>{wp.Name}</ICAOIdent>");
                 sb.AppendLine("            </ICAO>");
             }
             sb.AppendLine("        </ATCWaypoint>");
@@ -96,8 +106,36 @@ public sealed class FlightPlan
         return filePath;
     }
 
-    private static string CultureInvariant(FormattableString formattable)
+    /// <summary>
+    /// Converts decimal lat/lng/alt to MSFS DMS WorldPosition format:
+    /// N47° 27' 0.00",W122° 18' 36.00",+008000.00
+    /// </summary>
+    private static string ToWorldPosition(double lat, double lng, double altFeet)
     {
-        return formattable.ToString(CultureInfo.InvariantCulture);
+        var latDir = lat >= 0 ? "N" : "S";
+        var lngDir = lng >= 0 ? "E" : "W";
+
+        var absLat = Math.Abs(lat);
+        var absLng = Math.Abs(lng);
+
+        int latDeg = (int)absLat;
+        double latMinFull = (absLat - latDeg) * 60.0;
+        int latMin = (int)latMinFull;
+        double latSec = (latMinFull - latMin) * 60.0;
+
+        int lngDeg = (int)absLng;
+        double lngMinFull = (absLng - lngDeg) * 60.0;
+        int lngMin = (int)lngMinFull;
+        double lngSec = (lngMinFull - lngMin) * 60.0;
+
+        var altSign = altFeet >= 0 ? "+" : "-";
+        var altStr = string.Format(CultureInfo.InvariantCulture,
+            "{0}{1:000000.00}", altSign, Math.Abs(altFeet));
+
+        return string.Format(CultureInfo.InvariantCulture,
+            "{0}{1}\u00b0 {2}' {3:F2}\",{4}{5}\u00b0 {6}' {7:F2}\",{8}",
+            latDir, latDeg, latMin, latSec,
+            lngDir, lngDeg, lngMin, lngSec,
+            altStr);
     }
 }
