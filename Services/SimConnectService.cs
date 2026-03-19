@@ -373,9 +373,14 @@ public sealed class SimConnectService : IDisposable
     // ---------------------------------------------------------------------
 
     /// <summary>
-    /// Writes the flight plan to a .pln file and loads it into MSFS
-    /// using SimConnect.FlightPlanLoad.
-    /// Also saves a copy to the user's Documents folder for manual loading.
+    /// Raised when a flight plan has been processed and a response should be
+    /// sent back to the planner via WebSocket.
+    /// </summary>
+    public event Action<string>? FlightPlanResponse;
+
+    /// <summary>
+    /// Writes the flight plan to a .pln file, loads it into MSFS ATC via
+    /// SimConnect.FlightPlanLoad, and sends a response back to the planner.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void LoadFlightPlan(FlightPlan plan)
@@ -383,37 +388,58 @@ public sealed class SimConnectService : IDisposable
         if (_simConnect is null || !_connected)
         {
             Emit("Cannot load flight plan: not connected to MSFS");
+            FlightPlanResponse?.Invoke(
+                "{\"type\":\"flightplan:error\",\"message\":\"Not connected to MSFS\"}");
             return;
         }
 
         try
         {
-            // Save to Documents\Simple Flight Tracker\FlightPlans for easy access
-            var docsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "Simple Flight Tracker", "FlightPlans");
-            var plnPath = plan.WritePln(docsDir);
+            // Save to a simple local path (avoids OneDrive/cloud sync issues)
+            var plnDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SimpleFlightTracker", "FlightPlans");
+            var plnPath = plan.WritePln(plnDir);
 
             Emit($"Flight plan saved: {plnPath}");
 
-            // SimConnect_FlightPlanLoad — SDK says "no need to enter extension"
+            // Also save a copy to Documents for easy manual access
+            try
+            {
+                var docsDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "Simple Flight Tracker", "FlightPlans");
+                plan.WritePln(docsDir);
+                Emit($"Copy saved to Documents: {docsDir}");
+            }
+            catch { /* best-effort copy to Documents */ }
+
+            // SimConnect_FlightPlanLoad — loads into MSFS ATC flight plan system.
+            // NOTE: This populates the ATC flight plan only. It does NOT push
+            // the plan into avionics (GPS/G1000/EFB). To load into avionics,
+            // use the EFB "Load PLN" button and select the saved .pln file.
             var pathNoExt = Path.Combine(
-                Path.GetDirectoryName(plnPath) ?? docsDir,
+                Path.GetDirectoryName(plnPath) ?? plnDir,
                 Path.GetFileNameWithoutExtension(plnPath));
 
-            Emit($"Calling SimConnect FlightPlanLoad...");
+            Emit("Calling SimConnect FlightPlanLoad (ATC flight plan)...");
             _simConnect.FlightPlanLoad(pathNoExt);
-            Emit($"FlightPlanLoad called successfully: {plan.Departure} -> {plan.Arrival}");
-
-            // Note: SDK docs state "NO ERROR, NO RESPONSE" for this function,
-            // meaning it may silently fail. If the plan doesn't appear in MSFS,
-            // the user can load the .pln file manually from the World Map.
-            Emit($"If the plan doesn't appear in MSFS, load it manually from:");
+            Emit($"ATC flight plan loaded: {plan.Departure} -> {plan.Arrival}");
+            Emit("NOTE: FlightPlanLoad sets the ATC flight plan only.");
+            Emit("To load into GPS/avionics, use EFB > Load PLN and select:");
             Emit($"  {plnPath}");
+
+            // Send success response back to planner
+            FlightPlanResponse?.Invoke(
+                $"{{\"type\":\"flightplan:ack\",\"departure\":\"{plan.Departure}\"," +
+                $"\"arrival\":\"{plan.Arrival}\",\"status\":\"loaded\"," +
+                $"\"message\":\"ATC flight plan loaded. Use EFB to load into avionics.\"}}");
         }
         catch (Exception ex)
         {
             Emit($"Error loading flight plan: {ex.Message}");
+            FlightPlanResponse?.Invoke(
+                $"{{\"type\":\"flightplan:error\",\"message\":\"{ex.Message.Replace("\"", "'")}\"}}");
         }
     }
 

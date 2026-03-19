@@ -55,6 +55,9 @@ public static class Program
             simService.LoadFlightPlan(plan);
         };
 
+        // Send flight plan responses (ack/error) back to the planner via WebSocket
+        simService.FlightPlanResponse += json => wsServer.Broadcast(json);
+
         // --- REST API server ----------------------------------------------------
         using var apiServer = new ApiServer(engine);
         apiServer.Log += Log;
