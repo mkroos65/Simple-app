@@ -78,6 +78,7 @@ public sealed class TelemetryWebSocketServer : IDisposable
 
             socket.OnMessage = message =>
             {
+                Emit($"Incoming WebSocket message ({message.Length} chars)");
                 // Route incoming messages (e.g. flight plans) to the engine
                 MessageReceived?.Invoke(message);
             };

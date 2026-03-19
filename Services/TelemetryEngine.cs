@@ -5,6 +5,7 @@
 
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SimpleFlightTracker.Telemetry;
 
 namespace SimpleFlightTracker.Services;
@@ -164,16 +165,29 @@ public sealed class TelemetryEngine
             switch (type)
             {
                 case "flightplan":
-                    var plan = JsonSerializer.Deserialize<FlightPlan>(json);
+                    Log?.Invoke($"Parsing flight plan JSON...");
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    var plan = JsonSerializer.Deserialize<FlightPlan>(json, options);
                     if (plan is not null)
                     {
                         Log?.Invoke($"Flight plan parsed: {plan.Departure} -> {plan.Arrival} " +
                             $"({plan.Waypoints.Count} waypoints, cruise {plan.CruisingAltitude} ft)");
+
+                        if (string.IsNullOrEmpty(plan.Departure) || string.IsNullOrEmpty(plan.Arrival))
+                        {
+                            Log?.Invoke("WARNING: Departure or arrival is empty — JSON field names may not match.");
+                            Log?.Invoke($"Raw JSON: {json}");
+                        }
+
                         FlightPlanReceived?.Invoke(plan);
                     }
                     else
                     {
                         Log?.Invoke("Flight plan deserialization returned null");
+                        Log?.Invoke($"Raw JSON: {json}");
                     }
                     break;
 
