@@ -73,6 +73,14 @@
     <h1>Simple Flight Tracker</h1>
     <p class="subtitle">WebSocket Telemetry Test Client</p>
 
+    <div style="margin-bottom:1rem;">
+      <label style="font-size:0.85rem; color:#888;">Host:</label>
+      <input id="hostInput" type="text" value="localhost" style="background:#16213e; color:#e0e0e0; border:1px solid #0f3460; padding:0.4rem 0.6rem; border-radius:4px; width:160px; font-size:0.9rem;" />
+      <label style="font-size:0.85rem; color:#888; margin-left:0.5rem;">
+        <input id="tlsCheckbox" type="checkbox" checked /> TLS (wss://)
+      </label>
+    </div>
+
     <button id="connectBtn" onclick="toggleConnection()">Connect</button>
 
     <div id="statusBar" class="status disconnected">Disconnected</div>
@@ -143,9 +151,13 @@
 
     function connect() {
       setStatus("connecting", "Connecting...");
-      log("Connecting to ws://localhost:29112 ...");
+      const host = document.getElementById("hostInput").value || "localhost";
+      const useTls = document.getElementById("tlsCheckbox").checked;
+      const protocol = useTls ? "wss" : "ws";
+      const url = protocol + "://" + host + ":29112";
+      log("Connecting to " + url + " ...");
 
-      ws = new WebSocket("ws://localhost:29112");
+      ws = new WebSocket(url);
 
       ws.onopen = () => {
         setStatus("connected", "Connected");

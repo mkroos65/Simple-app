@@ -9,15 +9,16 @@ Designed to integrate with [simpleflightplanner.com/planner](https://www.simplef
 ```
 ┌──────────────┐  SimConnect   ┌─────────────────────┐  WebSocket    ┌──────────────┐
 │  MS Flight   │──────────────▶│  Simple Flight      │──────────────▶│  Web App /   │
-│  Simulator   │               │  Tracker v2.0       │   (JSON)      │  React Client│
+│  Simulator   │               │  Tracker v2.0       │  (wss/JSON)   │  React Client│
 └──────────────┘               │                     │               └──────────────┘
                                │  SimConnectService  │  REST API     ┌──────────────┐
                                │  TelemetryEngine    │──────────────▶│  HTTP Client │
-                               │  WebSocketServer    │               └──────────────┘
+                               │  WebSocketServer    │  (https)      └──────────────┘
                                │  ApiServer          │
+                               │  CertificateHelper  │
                                └─────────────────────┘
-                                 ws://localhost:29112
-                                 http://localhost:5555
+                                 wss://localhost:29112
+                                 https://localhost:5555
 ```
 
 ## Requirements
@@ -66,10 +67,18 @@ You should see:
        Simple Flight Tracker v2.0
 =========================================
 
-[12:00:00] WebSocket server running on port 29112
-[12:00:00] REST API server running on port 5555
+[12:00:00] Generating self-signed TLS certificate for LAN connections...
+[12:00:00] TLS enabled — WebSocket server will use wss:// on port 29112
+[12:00:00] WebSocket server running on port 29112 (wss://)
+[12:00:00] REST API server running on port 5555 (https://)
 [12:00:00] Connecting to SimConnect...
 [12:00:01] Connected to MSFS
+```
+
+To disable TLS and use plain `ws://` instead:
+
+```bash
+dotnet run -- --no-tls
 ```
 
 ### 4. Publish a standalone executable
@@ -92,7 +101,7 @@ This bridge is designed to work with [simpleflightplanner.com/planner](https://w
 
 1. Start the companion bridge (`dotnet run`)
 2. Open [simpleflightplanner.com/planner](https://www.simpleflightplanner.com/planner)
-3. The planner auto-connects to `ws://localhost:29112`
+3. The planner auto-connects to `wss://localhost:29112` (TLS enabled by default)
 4. Your aircraft appears on the map in real time
 5. Click "Send to Sim" in the planner to load a flight plan into MSFS
 
@@ -101,7 +110,8 @@ This bridge is designed to work with [simpleflightplanner.com/planner](https://w
 ### Endpoint
 
 ```
-ws://localhost:29112
+wss://localhost:29112      (TLS, default)
+ws://localhost:29112       (plain, with --no-tls flag)
 ```
 
 ### Telemetry Message (Bridge -> Planner, ~1 Hz)
@@ -166,7 +176,8 @@ Sent when user clicks "Send to Sim" in the planner:
 ### Base URL
 
 ```
-http://localhost:5555
+https://localhost:5555     (TLS, default)
+http://localhost:5555      (plain, with --no-tls flag)
 ```
 
 All endpoints return the same structured JSON format used by WebSocket messages. CORS is enabled for browser-based clients.
@@ -178,7 +189,7 @@ All endpoints return the same structured JSON format used by WebSocket messages.
 Returns the latest aircraft state.
 
 ```bash
-curl http://localhost:5555/api/aircraft
+curl -k https://localhost:5555/api/aircraft
 ```
 
 ```json
@@ -203,7 +214,7 @@ curl http://localhost:5555/api/aircraft
 Returns the latest autopilot state.
 
 ```bash
-curl http://localhost:5555/api/autopilot
+curl -k https://localhost:5555/api/autopilot
 ```
 
 #### `GET /api/traffic`
@@ -211,7 +222,7 @@ curl http://localhost:5555/api/autopilot
 Returns a list of nearby AI / multiplayer aircraft.
 
 ```bash
-curl http://localhost:5555/api/traffic
+curl -k https://localhost:5555/api/traffic
 ```
 
 > **Note:** If no data is available yet (e.g. MSFS not connected), aircraft and autopilot endpoints return HTTP 503 with `{"error": "No ... data available"}`.
@@ -221,7 +232,8 @@ curl http://localhost:5555/api/traffic
 ### WebSocket (streaming telemetry)
 
 ```javascript
-const ws = new WebSocket("ws://localhost:29112");
+// Use wss:// for TLS (default), or ws:// if running with --no-tls
+const ws = new WebSocket("wss://localhost:29112");
 
 ws.onopen = () => {
   console.log("Connected to Simple Flight Tracker");
@@ -263,7 +275,8 @@ ws.send(JSON.stringify(flightPlan));
 
 ```javascript
 async function getAircraftState() {
-  const res = await fetch("http://localhost:5555/api/aircraft");
+  // Use https:// for TLS (default), or http:// if running with --no-tls
+  const res = await fetch("https://localhost:5555/api/aircraft");
   const msg = await res.json();
   console.log(msg.data);
 }
@@ -288,7 +301,8 @@ Simple-Flight-Tracker/
 │   └── TelemetryMessage.cs     # Event-based message envelope
 ├── Services/
 │   ├── SimConnectService.cs    # SimConnect lifecycle & multi-definition polling
-│   └── TelemetryEngine.cs      # Central telemetry hub: cache, events, REST feed
+│   ├── TelemetryEngine.cs      # Central telemetry hub: cache, events, REST feed
+│   └── CertificateHelper.cs    # Auto-generates self-signed TLS certificate
 ├── Servers/
 │   ├── WebSocketServer.cs      # Fleck WebSocket server & structured broadcast
 │   └── ApiServer.cs            # ASP.NET minimal API (REST endpoints)
@@ -316,6 +330,7 @@ Simple-Flight-Tracker/
 - **Automatic reconnect**: If MSFS closes or SimConnect drops, the bridge retries every 5 seconds.
 - **Multiple clients**: Any number of WebSocket clients can connect simultaneously.
 - **Graceful shutdown**: Press `Ctrl+C` to cleanly close all services.
+- **TLS/SSL support**: Auto-generates a self-signed certificate for secure `wss://` and `https://` connections. Enables cross-device (iPad/tablet) connections over LAN. Use `--no-tls` to disable.
 - **Async architecture**: Non-blocking polling loop keeps CPU usage minimal.
 
 ## Error Handling
