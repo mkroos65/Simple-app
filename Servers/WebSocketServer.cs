@@ -4,7 +4,6 @@
 // =============================================================================
 
 using System.Collections.Concurrent;
-using System.Security.Cryptography.X509Certificates;
 using Fleck;
 
 namespace SimpleFlightTracker.Servers;
@@ -29,15 +28,9 @@ public sealed class TelemetryWebSocketServer : IDisposable
     /// </summary>
     public event Action<string>? MessageReceived;
 
-    public TelemetryWebSocketServer(X509Certificate2? certificate = null)
+    public TelemetryWebSocketServer()
     {
-        var uri = certificate != null ? Config.WebSocketSecureUri : Config.WebSocketUri;
-        _server = new WebSocketServer(uri);
-
-        if (certificate != null)
-        {
-            _server.Certificate = certificate;
-        }
+        _server = new WebSocketServer(Config.WebSocketUri);
 
         // Suppress Fleck's built-in logging to keep console clean
         FleckLog.LogAction = (level, message, ex) =>
@@ -89,8 +82,7 @@ public sealed class TelemetryWebSocketServer : IDisposable
             };
         });
 
-        var protocol = _server.Certificate != null ? "wss" : "ws";
-        Emit($"WebSocket server running on port {Config.WebSocketPort} ({protocol}://)");
+        Emit($"WebSocket server running on port {Config.WebSocketPort} (ws://)");
     }
 
     /// <summary>

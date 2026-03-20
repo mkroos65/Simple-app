@@ -2,7 +2,6 @@
 // Servers/ApiServer.cs — ASP.NET Minimal API for cached telemetry data
 // =============================================================================
 
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using SimpleFlightTracker.Services;
 using SimpleFlightTracker.Telemetry;
@@ -16,16 +15,14 @@ namespace SimpleFlightTracker.Servers;
 public sealed class ApiServer : IDisposable
 {
     private readonly TelemetryEngine _engine;
-    private readonly X509Certificate2? _certificate;
     private WebApplication? _app;
 
     /// <summary>Raised to surface log messages to the console.</summary>
     public event Action<string>? Log;
 
-    public ApiServer(TelemetryEngine engine, X509Certificate2? certificate = null)
+    public ApiServer(TelemetryEngine engine)
     {
         _engine = engine;
-        _certificate = certificate;
     }
 
     /// <summary>
@@ -38,21 +35,7 @@ public sealed class ApiServer : IDisposable
         // Suppress default ASP.NET logging noise
         builder.Logging.ClearProviders();
 
-        if (_certificate != null)
-        {
-            builder.WebHost.UseUrls($"https://0.0.0.0:{Config.ApiPort}");
-            builder.WebHost.ConfigureKestrel(options =>
-            {
-                options.ListenAnyIP(Config.ApiPort, listenOptions =>
-                {
-                    listenOptions.UseHttps(_certificate);
-                });
-            });
-        }
-        else
-        {
-            builder.WebHost.UseUrls($"http://0.0.0.0:{Config.ApiPort}");
-        }
+        builder.WebHost.UseUrls($"http://localhost:{Config.ApiPort}");
 
         _app = builder.Build();
 
@@ -74,8 +57,7 @@ public sealed class ApiServer : IDisposable
 
         MapEndpoints(_app);
 
-        var apiProtocol = _certificate != null ? "https" : "http";
-        Emit($"REST API server running on port {Config.ApiPort} ({apiProtocol}://)");
+        Emit($"REST API server running on port {Config.ApiPort} (http://)");
 
         await _app.RunAsync(cancellationToken);
     }

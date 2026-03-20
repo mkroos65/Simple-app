@@ -15,11 +15,8 @@ public static class Config
     /// <summary>WebSocket server port (matches simpleflightplanner.com protocol).</summary>
     public const int WebSocketPort = 29112;
 
-    /// <summary>Full WebSocket server URI (plain, no TLS).</summary>
+    /// <summary>Full WebSocket server URI used by Fleck.</summary>
     public static string WebSocketUri => $"ws://{WebSocketHost}:{WebSocketPort}";
-
-    /// <summary>Full WebSocket server URI (TLS/SSL).</summary>
-    public static string WebSocketSecureUri => $"wss://{WebSocketHost}:{WebSocketPort}";
 
     /// <summary>REST API server port.</summary>
     public const int ApiPort = 5555;

@@ -6,7 +6,6 @@
 // and REST API server. Waits for Ctrl+C (SIGINT) for graceful shutdown.
 // =============================================================================
 
-using System.Security.Cryptography.X509Certificates;
 using SimpleFlightTracker.Servers;
 using SimpleFlightTracker.Services;
 
@@ -29,32 +28,8 @@ public static class Program
             cts.Cancel();
         };
 
-        // --- TLS certificate ----------------------------------------------------
-        X509Certificate2? tlsCert = null;
-        var useTls = !args.Contains("--no-tls");
-
-        if (useTls)
-        {
-            try
-            {
-                tlsCert = CertificateHelper.GetOrCreateCertificate(Log);
-                Log($"TLS enabled — WebSocket server will use wss:// on port {Config.WebSocketPort}");
-                Log("NOTE: Clients connecting from other devices must accept the self-signed certificate.");
-            }
-            catch (Exception ex)
-            {
-                Log($"TLS certificate generation failed: {ex.Message}");
-                Log("Falling back to plain ws:// (no TLS)");
-                tlsCert = null;
-            }
-        }
-        else
-        {
-            Log("TLS disabled (--no-tls flag). Using plain ws://");
-        }
-
         // --- WebSocket server ---------------------------------------------------
-        using var wsServer = new TelemetryWebSocketServer(tlsCert);
+        using var wsServer = new TelemetryWebSocketServer();
         wsServer.Log += Log;
         wsServer.Start();
 
@@ -84,7 +59,7 @@ public static class Program
         simService.FlightPlanResponse += json => wsServer.Broadcast(json);
 
         // --- REST API server ----------------------------------------------------
-        using var apiServer = new ApiServer(engine, tlsCert);
+        using var apiServer = new ApiServer(engine);
         apiServer.Log += Log;
 
         // Start the API server in the background (do NOT pass cts.Token to

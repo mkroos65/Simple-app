@@ -40,8 +40,8 @@ echo.
 echo [2/2] Starting Simple Flight Tracker...
 echo.
 
-:: Run the app (pass any command-line args through, e.g. --no-tls)
-dotnet run --no-build -- %*
+:: Run the app
+dotnet run --no-build
 
 echo.
 echo Simple Flight Tracker has stopped.
