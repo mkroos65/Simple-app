@@ -406,35 +406,72 @@ public sealed class SimConnectService : IDisposable
             Emit($"MSFS 2020 flight plan saved: {pln2020}");
             Emit($"MSFS 2024 flight plan saved: {pln2024}");
 
-            // Also save copies to Documents for easy manual access via EFB
+            // Save copies to Documents for easy manual access via EFB / World Map
+            string? docsPln2020 = null;
+            string? docsPln2024 = null;
             try
             {
                 var docsDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                     "Simple Flight Tracker", "FlightPlans");
-                plan.WriteBothPlnFormats(docsDir);
+                var docsPaths = plan.WriteBothPlnFormats(docsDir);
+                docsPln2020 = docsPaths.Pln2020;
+                docsPln2024 = docsPaths.Pln2024;
                 Emit($"Copies saved to Documents: {docsDir}");
             }
             catch { /* best-effort copy to Documents */ }
 
-            // SimConnect_FlightPlanLoad — loads into MSFS ATC flight plan system.
-            // Try the 2024 format first (works on both MSFS versions),
-            // fall back to 2020 format if needed.
-            var pathNoExt2024 = Path.Combine(
-                Path.GetDirectoryName(pln2024) ?? plnDir,
-                Path.GetFileNameWithoutExtension(pln2024));
+            // Also try to copy into the MSFS 2020 default flight plan folder
+            // so the plan appears directly in World Map > Load Flight Plan.
+            // MS Store:  %LocalAppData%\Packages\Microsoft.FlightSimulator_8wekyb3d8bbwe\LocalState\
+            // Steam:     %AppData%\Microsoft Flight Simulator\
+            try
+            {
+                var msStoreDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Packages", "Microsoft.FlightSimulator_8wekyb3d8bbwe", "LocalState");
+                if (Directory.Exists(msStoreDir))
+                {
+                    var msfsPlnPath = Path.Combine(msStoreDir, $"{plan.Departure}_{plan.Arrival}.pln");
+                    File.Copy(pln2020, msfsPlnPath, overwrite: true);
+                    Emit($"Copied to MSFS 2020 (MS Store) folder: {msfsPlnPath}");
+                }
 
-            Emit("Calling SimConnect FlightPlanLoad (ATC flight plan)...");
-            _simConnect.FlightPlanLoad(pathNoExt2024);
-            Emit($"ATC flight plan loaded: {plan.Departure} -> {plan.Arrival}");
+                var steamDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Microsoft Flight Simulator");
+                if (Directory.Exists(steamDir))
+                {
+                    var msfsPlnPath = Path.Combine(steamDir, $"{plan.Departure}_{plan.Arrival}.pln");
+                    File.Copy(pln2020, msfsPlnPath, overwrite: true);
+                    Emit($"Copied to MSFS 2020 (Steam) folder: {msfsPlnPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Emit($"Could not copy to MSFS folder (non-critical): {ex.Message}");
+            }
+
+            // SimConnect_FlightPlanLoad — loads into MSFS flight plan system.
+            // Use the MSFS 2020 format (.pln with WorldPosition in DMS) which
+            // SimConnect expects. This sets the active ATC flight plan.
+            var pathNoExt2020 = Path.Combine(
+                Path.GetDirectoryName(pln2020) ?? plnDir,
+                Path.GetFileNameWithoutExtension(pln2020));
+
+            Emit("Calling SimConnect FlightPlanLoad...");
+            _simConnect.FlightPlanLoad(pathNoExt2020);
+            Emit($"Flight plan loaded via SimConnect: {plan.Departure} -> {plan.Arrival}");
 
             Emit("=== FLIGHT PLAN LOADING GUIDE ===");
-            Emit("MSFS 2020: The ATC flight plan is set. To load into avionics:");
-            Emit("  Use World Map > Load, or the in-cockpit EFB > Load PLN:");
-            Emit($"  {pln2020}");
-            Emit("MSFS 2024: Load via the in-cockpit EFB > Load from File:");
-            Emit($"  {pln2024}");
-            Emit("Both files are also saved in your Documents folder.");
+            Emit("MSFS 2020:");
+            Emit("  Flight plan loaded via SimConnect (ATC flight plan set).");
+            Emit("  Also available in World Map > Load Flight Plan.");
+            Emit("  For GPS/avionics: use in-cockpit EFB > Load PLN:");
+            Emit($"  {docsPln2020 ?? pln2020}");
+            Emit("MSFS 2024:");
+            Emit("  Load via the in-cockpit EFB > Load from File:");
+            Emit($"  {docsPln2024 ?? pln2024}");
             Emit("================================");
 
             // Send success response back to planner
