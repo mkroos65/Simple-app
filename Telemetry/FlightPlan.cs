@@ -43,17 +43,28 @@ public sealed class FlightPlan
     public double CruisingAltitude { get; set; }
 
     /// <summary>
-    /// Writes this flight plan as an MSFS-compatible .pln XML file.
-    /// Returns the full path to the written file.
+    /// Writes this flight plan as MSFS 2020 and MSFS 2024 compatible .pln XML files.
+    /// Returns a tuple of (msfs2020Path, msfs2024Path).
     /// </summary>
-    public string WritePln(string directory)
+    public (string Pln2020, string Pln2024) WriteBothPlnFormats(string directory)
+    {
+        Directory.CreateDirectory(directory);
+
+        var pln2020 = WritePln2020(directory);
+        var pln2024 = WritePln2024(directory);
+        return (pln2020, pln2024);
+    }
+
+    /// <summary>
+    /// Writes an MSFS 2020-compatible .pln file (AppVersionMajor=11, WorldPosition in DMS format).
+    /// </summary>
+    public string WritePln2020(string directory)
     {
         Directory.CreateDirectory(directory);
 
         var fileName = $"{Departure}_{Arrival}.pln";
         var filePath = Path.Combine(directory, fileName);
 
-        // Find departure and destination waypoints for LLA fields
         var depWp = Waypoints.FirstOrDefault(w => w.Name == Departure);
         var arrWp = Waypoints.FirstOrDefault(w => w.Name == Arrival);
         var depLla = depWp != null ? ToWorldPosition(depWp.Lat, depWp.Lng, 0) : "";
@@ -83,7 +94,6 @@ public sealed class FlightPlan
         {
             var isAirport = wp.Name == Departure || wp.Name == Arrival;
             var wpType = isAirport ? "Airport" : "User";
-            // Airport waypoints get altitude 0, en-route waypoints get cruising altitude
             var wpAlt = isAirport ? 0.0 : CruisingAltitude;
             var worldPos = ToWorldPosition(wp.Lat, wp.Lng, wpAlt);
 
@@ -96,6 +106,55 @@ public sealed class FlightPlan
                 sb.AppendLine($"                <ICAOIdent>{wp.Name}</ICAOIdent>");
                 sb.AppendLine("            </ICAO>");
             }
+            sb.AppendLine("        </ATCWaypoint>");
+        }
+
+        sb.AppendLine("    </FlightPlan.FlightPlan>");
+        sb.AppendLine("</SimBase.Document>");
+
+        File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+        return filePath;
+    }
+
+    /// <summary>
+    /// Writes an MSFS 2024-compatible .pln file (AppVersionMajor=12, ICAO-based waypoints
+    /// for the EFB). Saved as {DEP}_{ARR}_2024.pln.
+    /// </summary>
+    public string WritePln2024(string directory)
+    {
+        Directory.CreateDirectory(directory);
+
+        var fileName = $"{Departure}_{Arrival}_2024.pln";
+        var filePath = Path.Combine(directory, fileName);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.AppendLine("<SimBase.Document Type=\"AceXML\" version=\"1,0\">");
+        sb.AppendLine("    <Descr>AceXML Document</Descr>");
+        sb.AppendLine("    <FlightPlan.FlightPlan>");
+        sb.AppendLine($"        <Title>{Departure} to {Arrival}</Title>");
+        sb.AppendLine($"        <Descr>{Departure} to {Arrival}</Descr>");
+        sb.AppendLine("        <FPType>VFR</FPType>");
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
+            "        <CruisingAlt>{0:F0}</CruisingAlt>", CruisingAltitude));
+        sb.AppendLine($"        <DepartureID>{Departure}</DepartureID>");
+        sb.AppendLine($"        <DestinationID>{Arrival}</DestinationID>");
+        sb.AppendLine("        <AppVersion>");
+        sb.AppendLine("            <AppVersionMajor>12</AppVersionMajor>");
+        sb.AppendLine("        </AppVersion>");
+
+        // En-route waypoints only (exclude departure and arrival airports)
+        foreach (var wp in Waypoints)
+        {
+            var isAirport = wp.Name == Departure || wp.Name == Arrival;
+            if (isAirport) continue; // MSFS 2024 EFB uses DepartureID/DestinationID for airports
+
+            // For user/custom waypoints, include WorldPosition since they
+            // may not exist in the MSFS nav database
+            var worldPos = ToWorldPosition(wp.Lat, wp.Lng, CruisingAltitude);
+            sb.AppendLine($"        <ATCWaypoint id=\"{wp.Name}\">");
+            sb.AppendLine("            <ATCWaypointType>User</ATCWaypointType>");
+            sb.AppendLine($"            <WorldPosition>{worldPos}</WorldPosition>");
             sb.AppendLine("        </ATCWaypoint>");
         }
 

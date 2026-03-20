@@ -399,41 +399,51 @@ public sealed class SimConnectService : IDisposable
             var plnDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SimpleFlightTracker", "FlightPlans");
-            var plnPath = plan.WritePln(plnDir);
 
-            Emit($"Flight plan saved: {plnPath}");
+            // Generate both MSFS 2020 and MSFS 2024 format PLN files
+            var (pln2020, pln2024) = plan.WriteBothPlnFormats(plnDir);
 
-            // Also save a copy to Documents for easy manual access
+            Emit($"MSFS 2020 flight plan saved: {pln2020}");
+            Emit($"MSFS 2024 flight plan saved: {pln2024}");
+
+            // Also save copies to Documents for easy manual access via EFB
             try
             {
                 var docsDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                     "Simple Flight Tracker", "FlightPlans");
-                plan.WritePln(docsDir);
-                Emit($"Copy saved to Documents: {docsDir}");
+                plan.WriteBothPlnFormats(docsDir);
+                Emit($"Copies saved to Documents: {docsDir}");
             }
             catch { /* best-effort copy to Documents */ }
 
             // SimConnect_FlightPlanLoad — loads into MSFS ATC flight plan system.
-            // NOTE: This populates the ATC flight plan only. It does NOT push
-            // the plan into avionics (GPS/G1000/EFB). To load into avionics,
-            // use the EFB "Load PLN" button and select the saved .pln file.
-            var pathNoExt = Path.Combine(
-                Path.GetDirectoryName(plnPath) ?? plnDir,
-                Path.GetFileNameWithoutExtension(plnPath));
+            // Try the 2024 format first (works on both MSFS versions),
+            // fall back to 2020 format if needed.
+            var pathNoExt2024 = Path.Combine(
+                Path.GetDirectoryName(pln2024) ?? plnDir,
+                Path.GetFileNameWithoutExtension(pln2024));
 
             Emit("Calling SimConnect FlightPlanLoad (ATC flight plan)...");
-            _simConnect.FlightPlanLoad(pathNoExt);
+            _simConnect.FlightPlanLoad(pathNoExt2024);
             Emit($"ATC flight plan loaded: {plan.Departure} -> {plan.Arrival}");
-            Emit("NOTE: FlightPlanLoad sets the ATC flight plan only.");
-            Emit("To load into GPS/avionics, use EFB > Load PLN and select:");
-            Emit($"  {plnPath}");
+
+            Emit("=== FLIGHT PLAN LOADING GUIDE ===");
+            Emit("MSFS 2020: The ATC flight plan is set. To load into avionics:");
+            Emit("  Use World Map > Load, or the in-cockpit EFB > Load PLN:");
+            Emit($"  {pln2020}");
+            Emit("MSFS 2024: Load via the in-cockpit EFB > Load from File:");
+            Emit($"  {pln2024}");
+            Emit("Both files are also saved in your Documents folder.");
+            Emit("================================");
 
             // Send success response back to planner
             FlightPlanResponse?.Invoke(
                 $"{{\"type\":\"flightplan:ack\",\"departure\":\"{plan.Departure}\"," +
                 $"\"arrival\":\"{plan.Arrival}\",\"status\":\"loaded\"," +
-                $"\"message\":\"ATC flight plan loaded. Use EFB to load into avionics.\"}}");
+                $"\"pln2020\":\"{pln2020.Replace("\\", "\\\\")}\","+
+                $"\"pln2024\":\"{pln2024.Replace("\\", "\\\\")}\","+
+                $"\"message\":\"Flight plan saved. MSFS 2020: ATC plan loaded. MSFS 2024: Load via EFB > Load from File.\"}}");
         }
         catch (Exception ex)
         {
