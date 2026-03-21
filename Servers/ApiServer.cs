@@ -94,6 +94,28 @@ public sealed class ApiServer : IDisposable
                 MessageTypes.TrafficUpdate, traffic);
             return Results.Json(message);
         });
+
+        app.MapGet("/api/fuel", () =>
+        {
+            var state = _engine.LatestFuel;
+            if (state is null)
+                return Results.Json(new { error = "No fuel data available" }, statusCode: 503);
+
+            var message = TelemetryMessage<FuelState>.Create(
+                MessageTypes.FuelUpdate, state);
+            return Results.Json(message);
+        });
+
+        app.MapGet("/api/flightplan/progress", () =>
+        {
+            var progress = _engine.LatestFlightPlanProgress;
+            if (progress is null)
+                return Results.Json(new { error = "No active flight plan" }, statusCode: 503);
+
+            var message = TelemetryMessage<FlightPlanProgress>.Create(
+                MessageTypes.FlightPlanProgress, progress);
+            return Results.Json(message);
+        });
     }
 
     private void Emit(string message)
