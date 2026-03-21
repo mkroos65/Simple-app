@@ -20,11 +20,13 @@ namespace SimpleFlightTracker.Services;
 public sealed class TelemetryEngine
 {
     private readonly SimConnectService _simConnect;
+    private readonly FlightPlanTracker _flightPlanTracker = new();
     private readonly object _trafficLock = new();
 
     // Cached latest state — read by the REST API
     private AircraftState? _latestAircraft;
     private AutopilotState? _latestAutopilot;
+    private FuelState? _latestFuel;
     private List<TrafficAircraft> _latestTraffic = new();
     private List<TrafficAircraft> _trafficBuffer = new();
 
@@ -53,6 +55,9 @@ public sealed class TelemetryEngine
         _simConnect.AircraftStateReceived += OnAircraftState;
         _simConnect.AutopilotStateReceived += OnAutopilotState;
         _simConnect.TrafficAircraftReceived += OnTrafficAircraft;
+        _simConnect.FuelStateReceived += OnFuelState;
+
+        _flightPlanTracker.Log += msg => Log?.Invoke(msg);
     }
 
     // ---------------------------------------------------------------------
@@ -61,6 +66,8 @@ public sealed class TelemetryEngine
 
     public AircraftState? LatestAircraft => _latestAircraft;
     public AutopilotState? LatestAutopilot => _latestAutopilot;
+    public FuelState? LatestFuel => _latestFuel;
+    public FlightPlanProgress? LatestFlightPlanProgress => _flightPlanTracker.LatestProgress;
 
     public List<TrafficAircraft> LatestTraffic
     {
@@ -87,12 +94,27 @@ public sealed class TelemetryEngine
         {
             _plannerTickCounter = 0;
             EmitPlannerTelemetry(state);
+
+            // Update flight plan progress at ~1 Hz
+            if (_flightPlanTracker.HasActivePlan)
+            {
+                var progress = _flightPlanTracker.Update(state, _latestFuel);
+                if (progress is not null)
+                {
+                    EmitFlightPlanProgress(progress);
+                }
+            }
         }
     }
 
     private void OnAutopilotState(AutopilotState state)
     {
         _latestAutopilot = state;
+    }
+
+    private void OnFuelState(FuelState state)
+    {
+        _latestFuel = state;
     }
 
     private void OnTrafficAircraft(TrafficAircraft aircraft)
@@ -136,6 +158,21 @@ public sealed class TelemetryEngine
         }
     }
 
+    private void EmitFlightPlanProgress(FlightPlanProgress progress)
+    {
+        try
+        {
+            var msg = TelemetryMessage<FlightPlanProgress>.Create(
+                MessageTypes.FlightPlanProgress, progress);
+            var json = JsonSerializer.Serialize(msg);
+            MessageReady?.Invoke(json);
+        }
+        catch (Exception ex)
+        {
+            Log?.Invoke($"Error serialising flight plan progress: {ex.Message}");
+        }
+    }
+
     // ---------------------------------------------------------------------
     // Incoming messages from WebSocket clients
     // ---------------------------------------------------------------------
@@ -162,6 +199,7 @@ public sealed class TelemetryEngine
                     if (plan is not null)
                     {
                         Log?.Invoke($"Flight plan received: {plan.Departure} -> {plan.Arrival} ({plan.Waypoints.Count} waypoints)");
+                        _flightPlanTracker.SetFlightPlan(plan);
                         FlightPlanReceived?.Invoke(plan);
                     }
                     break;

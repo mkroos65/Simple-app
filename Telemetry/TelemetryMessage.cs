@@ -39,6 +39,8 @@ public static class MessageTypes
     public const string AutopilotUpdate = "autopilot:update";
     public const string TrafficUpdate   = "traffic:update";
     public const string FlightPlanUpdate = "flightplan:update";
+    public const string FuelUpdate       = "fuel:update";
+    public const string FlightPlanProgress = "flightplan:progress";
 
     /// <summary>Flat telemetry type used by simpleflightplanner.com protocol.</summary>
     public const string PlannerTelemetry = "telemetry";

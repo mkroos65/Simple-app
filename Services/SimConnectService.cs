@@ -16,7 +16,8 @@ public enum SimDefinition
 {
     Aircraft,
     Autopilot,
-    Traffic
+    Traffic,
+    Fuel
 }
 
 /// <summary>
@@ -26,7 +27,8 @@ public enum SimRequest
 {
     Aircraft,
     Autopilot,
-    Traffic
+    Traffic,
+    Fuel
 }
 
 /// <summary>
@@ -42,12 +44,15 @@ public sealed class SimConnectService : IDisposable
 
     private int _autopilotTickCounter;
     private int _trafficTickCounter;
+    private int _fuelTickCounter;
 
     // Aircraft: every tick (10 Hz at 100 ms interval)
     // Autopilot: every 5 ticks (2 Hz)
     // Traffic: every 10 ticks (1 Hz)
+    // Fuel: every 10 ticks (1 Hz)
     private const int AutopilotTickInterval = 5;
     private const int TrafficTickInterval = 10;
+    private const int FuelTickInterval = 10;
 
     /// <summary>Raised when new aircraft state is received.</summary>
     public event Action<AircraftState>? AircraftStateReceived;
@@ -57,6 +62,9 @@ public sealed class SimConnectService : IDisposable
 
     /// <summary>Raised when traffic data is received.</summary>
     public event Action<TrafficAircraft>? TrafficAircraftReceived;
+
+    /// <summary>Raised when fuel state is received.</summary>
+    public event Action<FuelState>? FuelStateReceived;
 
     /// <summary>Raised to surface log messages to the console.</summary>
     public event Action<string>? Log;
@@ -161,6 +169,7 @@ public sealed class SimConnectService : IDisposable
             RegisterAircraftDefinition();
             RegisterAutopilotDefinition();
             RegisterTrafficDefinition();
+            RegisterFuelDefinition();
 
             _connected = true;
         }
@@ -264,6 +273,23 @@ public sealed class SimConnectService : IDisposable
         _simConnect.RegisterDataDefineStruct<TrafficAircraftStruct>(SimDefinition.Traffic);
     }
 
+    private void RegisterFuelDefinition()
+    {
+        if (_simConnect is null) return;
+
+        _simConnect.AddToDataDefinition(SimDefinition.Fuel,
+            "FUEL TOTAL QUANTITY", "gallons",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        _simConnect.AddToDataDefinition(SimDefinition.Fuel,
+            "FUEL TOTAL CAPACITY", "gallons",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        _simConnect.AddToDataDefinition(SimDefinition.Fuel,
+            "ENG FUEL FLOW GPH:1", "gallons per hour",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+        _simConnect.RegisterDataDefineStruct<FuelStateStruct>(SimDefinition.Fuel);
+    }
+
     // ---------------------------------------------------------------------
     // Polling — issues requests at different rates per data type
     // ---------------------------------------------------------------------
@@ -306,6 +332,18 @@ public sealed class SimConnectService : IDisposable
                     SimDefinition.Traffic,
                     200000,  // 200 km radius for nearby aircraft
                     SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
+            }
+
+            // Fuel: every 10 ticks (1 Hz)
+            _fuelTickCounter++;
+            if (_fuelTickCounter >= FuelTickInterval)
+            {
+                _fuelTickCounter = 0;
+                _simConnect.RequestDataOnSimObjectType(
+                    SimRequest.Fuel,
+                    SimDefinition.Fuel,
+                    0,
+                    SIMCONNECT_SIMOBJECT_TYPE.USER);
             }
         }
         catch (Exception ex)
@@ -359,6 +397,10 @@ public sealed class SimConnectService : IDisposable
 
                 case SimRequest.Traffic when payload is TrafficAircraftStruct trafficStruct:
                     TrafficAircraftReceived?.Invoke(TrafficAircraft.FromStruct(trafficStruct));
+                    break;
+
+                case SimRequest.Fuel when payload is FuelStateStruct fuelStruct:
+                    FuelStateReceived?.Invoke(FuelState.FromStruct(fuelStruct));
                     break;
             }
         }
