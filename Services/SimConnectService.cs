@@ -283,8 +283,18 @@ public sealed class SimConnectService : IDisposable
         _simConnect.AddToDataDefinition(SimDefinition.Fuel,
             "FUEL TOTAL CAPACITY", "gallons",
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        // Register fuel flow for engines 1-4; unused engines report 0
         _simConnect.AddToDataDefinition(SimDefinition.Fuel,
             "ENG FUEL FLOW GPH:1", "gallons per hour",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        _simConnect.AddToDataDefinition(SimDefinition.Fuel,
+            "ENG FUEL FLOW GPH:2", "gallons per hour",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        _simConnect.AddToDataDefinition(SimDefinition.Fuel,
+            "ENG FUEL FLOW GPH:3", "gallons per hour",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        _simConnect.AddToDataDefinition(SimDefinition.Fuel,
+            "ENG FUEL FLOW GPH:4", "gallons per hour",
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
         _simConnect.RegisterDataDefineStruct<FuelStateStruct>(SimDefinition.Fuel);
